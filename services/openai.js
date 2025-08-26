@@ -1,3 +1,4 @@
+require('dotenv').config();
 const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
@@ -39,6 +40,11 @@ class OpenAIService {
 
   async analyzeImage(imagePath, userMessage = '') {
     try {
+      // Check if file exists
+      if (!fs.existsSync(imagePath)) {
+        throw new Error(`Image file not found: ${imagePath}`);
+      }
+
       const imageBuffer = fs.readFileSync(imagePath);
       const base64Image = imageBuffer.toString('base64');
 
@@ -48,7 +54,7 @@ class OpenAIService {
           content: [
             {
               type: 'text',
-              text: userMessage || 'Please analyze this image and describe what you see. If there is any text in the image, please read it out.'
+              text: userMessage || 'Please analyze this image and describe what you see. If there is any text in the image, please read it out clearly. Provide a detailed description including any text, objects, people, or important details you can identify.'
             },
             {
               type: 'image_url',
@@ -63,7 +69,7 @@ class OpenAIService {
       const response = await openai.chat.completions.create({
         model: this.visionModel,
         messages: messages,
-        max_tokens: 1000,
+        max_tokens: 1500,
         temperature: 0.7,
       });
 
@@ -76,6 +82,11 @@ class OpenAIService {
 
   async transcribeAudio(audioPath) {
     try {
+      // Check if file exists
+      if (!fs.existsSync(audioPath)) {
+        throw new Error(`Audio file not found: ${audioPath}`);
+      }
+
       const audioFile = fs.createReadStream(audioPath);
       
       const response = await openai.audio.transcriptions.create({
@@ -83,6 +94,7 @@ class OpenAIService {
         model: 'whisper-1',
         response_format: 'text',
         language: 'en',
+        temperature: 0.2, // Lower temperature for more accurate transcription
       });
 
       return response;
@@ -107,7 +119,11 @@ class OpenAIService {
           if (!filePath) {
             throw new Error('Image file path is required for image analysis');
           }
-          aiResponse = await this.analyzeImage(filePath, content);
+          const imageAnalysis = await this.analyzeImage(filePath, content);
+          // Combine image analysis with conversation history for better context
+          aiResponse = await this.chatCompletion([
+            { role: 'user', content: `Image analysis: ${imageAnalysis}. User message: ${content || 'Please respond to this image.'}` }
+          ], conversationHistory);
           break;
 
         case 'audio':
@@ -116,7 +132,7 @@ class OpenAIService {
           }
           const transcription = await this.transcribeAudio(filePath);
           aiResponse = await this.chatCompletion([
-            { role: 'user', content: `Transcribed audio: "${transcription}". Please respond to this message.` }
+            { role: 'user', content: `Transcribed audio: "${transcription}". Please respond to this message naturally and conversationally.` }
           ], conversationHistory);
           break;
 

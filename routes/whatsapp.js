@@ -74,13 +74,20 @@ router.post('/webhook', async (req, res) => {
         // Ensure directory exists before saving file
         await fs.ensureDir(path.dirname(localFilePath));
 
-        // Save file
+        // Save file with proper error handling
         const writeStream = fs.createWriteStream(localFilePath);
         mediaStream.pipe(writeStream);
 
         await new Promise((resolve, reject) => {
           writeStream.on('finish', resolve);
-          writeStream.on('error', reject);
+          writeStream.on('error', (error) => {
+            console.error('Error writing file:', error);
+            reject(error);
+          });
+          mediaStream.on('error', (error) => {
+            console.error('Error reading media stream:', error);
+            reject(error);
+          });
         });
 
         // Save media file info to database
@@ -115,15 +122,18 @@ router.post('/webhook', async (req, res) => {
 
     // Get conversation history for context
     const conversationHistory = await DatabaseService.getConversationHistoryForAI(messageData.from, 10);
+    console.log(`Retrieved ${conversationHistory.length} previous messages for context`);
 
     // Process message with AI
     try {
+      console.log(`Processing ${messageData.messageType} message with AI...`);
       aiResponse = await OpenAIService.processMessage(
         messageData.messageType,
         messageData.content,
         localFilePath,
         conversationHistory
       );
+      console.log('AI response generated successfully');
     } catch (error) {
       console.error('Error processing message with AI:', error);
       aiResponse = 'Sorry, I encountered an error processing your message. Please try again.';
@@ -156,58 +166,6 @@ router.post('/webhook', async (req, res) => {
   } catch (error) {
     console.error('Webhook processing error:', error);
     res.status(500).send('Internal Server Error');
-  }
-});
-
-// Get conversation history
-router.get('/conversations/:phoneNumber', async (req, res) => {
-  try {
-    const { phoneNumber } = req.params;
-    const { limit = 50 } = req.query;
-
-    const history = await DatabaseService.getConversationHistory(phoneNumber, parseInt(limit));
-    const stats = await DatabaseService.getConversationStats(phoneNumber);
-
-    res.json({
-      success: true,
-      data: {
-        history,
-        stats
-      }
-    });
-  } catch (error) {
-    console.error('Error getting conversation history:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get conversation history'
-    });
-  }
-});
-
-// Send test message
-router.post('/send', async (req, res) => {
-  try {
-    const { to, message } = req.body;
-
-    if (!to || !message) {
-      return res.status(400).json({
-        success: false,
-        error: 'Phone number and message are required'
-      });
-    }
-
-    const result = await WhatsAppService.sendTextMessage(to, message);
-
-    res.json({
-      success: true,
-      data: result
-    });
-  } catch (error) {
-    console.error('Error sending test message:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send message'
-    });
   }
 });
 

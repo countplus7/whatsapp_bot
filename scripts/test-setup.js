@@ -37,29 +37,60 @@ async function testSetup() {
     console.log('   ❌ Database connection failed:', error.message);
   }
 
-  // Test 3: Database Tables
-  console.log('\n3. Checking Database Tables...');
-  try {
-    const tables = ['conversations', 'messages', 'media_files'];
-    for (const table of tables) {
-      const result = await pool.query(`SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = $1
-      )`, [table]);
-      
-      if (result.rows[0].exists) {
-        console.log(`   ✅ Table '${table}' exists`);
-      } else {
-        console.log(`   ❌ Table '${table}' does not exist`);
+      // Test 3: Database Tables
+    console.log('\n3. Checking Database Tables...');
+    try {
+      const tables = ['conversations', 'messages', 'media_files'];
+      for (const table of tables) {
+        const result = await pool.query(`SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = $1
+        )`, [table]);
+        
+        if (result.rows[0].exists) {
+          console.log(`   ✅ Table '${table}' exists`);
+        } else {
+          console.log(`   ❌ Table '${table}' does not exist`);
+        }
       }
+    } catch (error) {
+      console.log('   ❌ Error checking database tables:', error.message);
     }
-  } catch (error) {
-    console.log('   ❌ Error checking database tables:', error.message);
-  }
 
-  // Test 4: OpenAI API
-  console.log('\n4. Testing OpenAI API...');
+    // Test 4: Media Directories
+    console.log('\n4. Checking Media Directories...');
+    try {
+      const fs = require('fs-extra');
+      const path = require('path');
+      
+      const uploadsDir = path.join(__dirname, '..', 'uploads');
+      const imagesDir = path.join(__dirname, '..', 'uploads', 'images');
+      const audioDir = path.join(__dirname, '..', 'uploads', 'audio');
+      
+      if (fs.existsSync(uploadsDir)) {
+        console.log('   ✅ Uploads directory exists');
+      } else {
+        console.log('   ❌ Uploads directory does not exist');
+      }
+      
+      if (fs.existsSync(imagesDir)) {
+        console.log('   ✅ Images directory exists');
+      } else {
+        console.log('   ❌ Images directory does not exist');
+      }
+      
+      if (fs.existsSync(audioDir)) {
+        console.log('   ✅ Audio directory exists');
+      } else {
+        console.log('   ❌ Audio directory does not exist');
+      }
+    } catch (error) {
+      console.log('   ❌ Error checking media directories:', error.message);
+    }
+
+      // Test 5: OpenAI API
+    console.log('\n5. Testing OpenAI API...');
   try {
     const response = await OpenAIService.chatCompletion([
       { role: 'user', content: 'Hello, this is a test message.' }
@@ -68,26 +99,6 @@ async function testSetup() {
     console.log(`   Test response: ${response.substring(0, 50)}...`);
   } catch (error) {
     console.log('   ❌ OpenAI API connection failed:', error.message);
-  }
-
-  // Test 5: Upload Directories
-  console.log('\n5. Checking Upload Directories...');
-  const fs = require('fs-extra');
-  const path = require('path');
-  
-  const uploadDirs = [
-    path.join(__dirname, '..', 'uploads'),
-    path.join(__dirname, '..', 'uploads', 'images'),
-    path.join(__dirname, '..', 'uploads', 'audio'),
-    path.join(__dirname, '..', 'uploads', 'documents')
-  ];
-
-  for (const dir of uploadDirs) {
-    if (fs.existsSync(dir)) {
-      console.log(`   ✅ Directory exists: ${path.relative(process.cwd(), dir)}`);
-    } else {
-      console.log(`   ❌ Directory missing: ${path.relative(process.cwd(), dir)}`);
-    }
   }
 
   // Test 6: Port Availability

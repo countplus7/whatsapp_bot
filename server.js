@@ -8,21 +8,18 @@ const fs = require('fs-extra');
 
 // Import routes
 const whatsappRoutes = require('./routes/whatsapp');
-const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Create upload directories if they don't exist
+// Create media directories for WhatsApp messages
 const uploadsDir = path.join(__dirname, 'uploads');
 const imagesDir = path.join(uploadsDir, 'images');
 const audioDir = path.join(uploadsDir, 'audio');
-const documentsDir = path.join(uploadsDir, 'documents');
 
 fs.ensureDirSync(uploadsDir);
 fs.ensureDirSync(imagesDir);
 fs.ensureDirSync(audioDir);
-fs.ensureDirSync(documentsDir);
 
 // Security middleware
 app.use(helmet());
@@ -44,21 +41,38 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static file serving for uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static file serving for media files (optional, for debugging)
+if (process.env.NODE_ENV === 'development') {
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const fs = require('fs-extra');
+  const path = require('path');
+  
+  // Check media directories
+  const uploadsDir = path.join(__dirname, 'uploads');
+  const imagesDir = path.join(uploadsDir, 'images');
+  const audioDir = path.join(uploadsDir, 'audio');
+  
+  const healthStatus = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+    uptime: process.uptime(),
+    directories: {
+      uploads: fs.existsSync(uploadsDir),
+      images: fs.existsSync(imagesDir),
+      audio: fs.existsSync(audioDir)
+    },
+    environment: process.env.NODE_ENV || 'development'
+  };
+
+  res.status(200).json(healthStatus);
 });
 
 // API routes
-app.use('/api/whatsapp', whatsappRoutes);
-app.use('/api/upload', uploadRoutes);
+app.use('/whatsapp', whatsappRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

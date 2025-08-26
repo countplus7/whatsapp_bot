@@ -45,7 +45,7 @@ A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and 
    # Database Configuration
    DB_HOST=localhost
    DB_PORT=5432
-   DB_NAME=whatsapp_bot
+   DB_NAME=your_db_name
    DB_USER=your_db_user
    DB_PASSWORD=your_db_password
 
@@ -57,27 +57,37 @@ A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and 
    # OpenAI Configuration
    OPENAI_API_KEY=your_openai_api_key
 
-   # File Upload Configuration
+   # Media Processing Configuration
    MAX_FILE_SIZE=10485760
-   UPLOAD_PATH=./uploads
    ```
 
 4. **Set up PostgreSQL database**
    ```bash
-   # Create database
-   createdb whatsapp_bot
+   # Create user and database
+   See PostgreSQL commands.
    
    # Initialize database tables
    npm run init-db
    ```
 
-5. **Start the server**
+5. **Test the setup**
+   ```bash
+   npm run test-setup
+   ```
+
+6. **Start the server**
    ```bash
    # Development mode
    npm run dev
    
    # Production mode
    npm start
+   ```
+
+7. **Optional: Set up media cleanup (recommended for production)**
+   ```bash
+   # Clean up old media files (older than 30 days)
+   npm run cleanup
    ```
 
 ## WhatsApp Business API Setup
@@ -92,52 +102,22 @@ A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and 
    - Get your access token and phone number ID
 
 3. **Configure Webhook**
-   - Set webhook URL: `https://your-domain.com/api/whatsapp/webhook`
+   - Set webhook URL: `https://your-domain.com/whatsapp/webhook`
    - Set verify token (same as in .env file)
    - Subscribe to messages events
 
 ## API Endpoints
 
 ### WhatsApp Webhook
-- `GET /api/whatsapp/webhook` - Webhook verification
-- `POST /api/whatsapp/webhook` - Receive messages
-
-### Conversation Management
-- `GET /api/whatsapp/conversations/:phoneNumber` - Get conversation history
-- `POST /api/whatsapp/send` - Send test message
-
-### File Upload
-- `POST /api/upload/file` - Upload single file
-- `POST /api/upload/files` - Upload multiple files
-- `GET /api/upload/files` - List uploaded files
-- `DELETE /api/upload/files/:filename` - Delete file
-- `GET /api/upload/files/:filename/info` - Get file info
+- `GET /whatsapp/webhook` - Webhook verification
+- `POST /whatsapp/webhook` - Receive messages
 
 ### Health Check
 - `GET /health` - Server health status
 
 ## Usage Examples
 
-### Send a Test Message
-```bash
-curl -X POST http://localhost:8000/api/whatsapp/send \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "1234567890",
-    "message": "Hello from the AI bot!"
-  }'
-```
-
-### Get Conversation History
-```bash
-curl http://localhost:8000/api/whatsapp/conversations/1234567890
-```
-
-### Upload a File
-```bash
-curl -X POST http://localhost:8000/api/upload/file \
-  -F "file=@/path/to/image.jpg"
-```
+*The WhatsApp AI chatbot automatically processes media files received through WhatsApp messages. No manual file uploads are needed.*
 
 ## File Structure
 
@@ -146,8 +126,7 @@ whatsapp_bot/
 ├── config/
 │   └── database.js          # Database configuration
 ├── routes/
-│   ├── whatsapp.js          # WhatsApp webhook routes
-│   └── upload.js            # File upload routes
+│   └── whatsapp.js          # WhatsApp webhook routes
 ├── services/
 │   ├── database.js          # Database operations
 │   ├── openai.js            # OpenAI API integration
@@ -211,15 +190,14 @@ whatsapp_bot/
 | `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp phone number ID | Yes |
 | `WHATSAPP_VERIFY_TOKEN` | Webhook verification token | Yes |
 | `OPENAI_API_KEY` | OpenAI API key | Yes |
-| `MAX_FILE_SIZE` | Maximum file upload size | No (default: 10MB) |
-| `UPLOAD_PATH` | Upload directory path | No (default: ./uploads) |
+| `MAX_FILE_SIZE` | Maximum media file size | No (default: 10MB) |
 
 ## Security Features
 
 - Rate limiting (100 requests per 15 minutes)
 - Helmet.js for security headers
 - CORS configuration
-- File type validation
+- Environment-based static file serving
 - File size limits
 - Input validation and sanitization
 

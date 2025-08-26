@@ -88,24 +88,7 @@ class DatabaseService {
     }
   }
 
-  async getConversationHistory(whatsappNumber, limit = 50) {
-    try {
-      const result = await pool.query(
-        `SELECT m.*, c.conversation_id 
-         FROM messages m
-         JOIN conversations c ON m.conversation_id = c.conversation_id
-         WHERE c.whatsapp_number = $1
-         ORDER BY m.timestamp DESC
-         LIMIT $2`,
-        [whatsappNumber, limit]
-      );
 
-      return result.rows.reverse(); // Return in chronological order
-    } catch (error) {
-      console.error('Error getting conversation history:', error);
-      throw error;
-    }
-  }
 
   async getConversationHistoryForAI(whatsappNumber, limit = 10) {
     try {
@@ -138,70 +121,7 @@ class DatabaseService {
     }
   }
 
-  async getMessageById(messageId) {
-    try {
-      const result = await pool.query(
-        'SELECT * FROM messages WHERE message_id = $1',
-        [messageId]
-      );
 
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error getting message by ID:', error);
-      throw error;
-    }
-  }
-
-  async updateMessageAIResponse(messageId, aiResponse) {
-    try {
-      const result = await pool.query(
-        'UPDATE messages SET ai_response = $1 WHERE message_id = $2 RETURNING *',
-        [aiResponse, messageId]
-      );
-
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error updating message AI response:', error);
-      throw error;
-    }
-  }
-
-  async getMediaFileByMessageId(messageId) {
-    try {
-      const result = await pool.query(
-        'SELECT * FROM media_files WHERE message_id = $1',
-        [messageId]
-      );
-
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error getting media file by message ID:', error);
-      throw error;
-    }
-  }
-
-  async getConversationStats(whatsappNumber) {
-    try {
-      const result = await pool.query(
-        `SELECT 
-          COUNT(*) as total_messages,
-          COUNT(CASE WHEN message_type = 'text' THEN 1 END) as text_messages,
-          COUNT(CASE WHEN message_type = 'image' THEN 1 END) as image_messages,
-          COUNT(CASE WHEN message_type = 'audio' THEN 1 END) as audio_messages,
-          MIN(timestamp) as first_message,
-          MAX(timestamp) as last_message
-         FROM messages m
-         JOIN conversations c ON m.conversation_id = c.conversation_id
-         WHERE c.whatsapp_number = $1`,
-        [whatsappNumber]
-      );
-
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error getting conversation stats:', error);
-      throw error;
-    }
-  }
 }
 
 module.exports = new DatabaseService(); 
