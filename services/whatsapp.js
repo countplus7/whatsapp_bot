@@ -121,27 +121,36 @@ class WhatsAppService {
     }
   }
 
-  async verifyWebhook(mode, token, challenge) {
+  verifyWebhook(mode, token, challenge) {
     if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
       return challenge;
     }
+    console.log('Webhook verification failed');
     throw new Error('Invalid webhook verification');
   }
 
   async processIncomingMessage(body) {
     try {
+      console.log('Processing webhook body:', JSON.stringify(body, null, 2));
+      
+      // Check if this is a valid WhatsApp Business Account webhook
+      if (body.object !== 'whatsapp_business_account') {
+        throw new Error('Invalid webhook structure: not a WhatsApp Business Account webhook');
+      }
+
       const entry = body.entry?.[0];
       if (!entry) {
         throw new Error('No entry found in webhook body');
       }
 
       const changes = entry.changes?.[0];
-      if (!changes || changes.value?.object !== 'whatsapp_business_account') {
-        throw new Error('Invalid webhook structure');
+      if (!changes || !changes.value) {
+        throw new Error('Invalid webhook structure: no changes or value found');
       }
 
       const messages = changes.value.messages;
       if (!messages || messages.length === 0) {
+        console.log('No messages found in webhook, this might be a status update');
         return null; // No messages to process
       }
 

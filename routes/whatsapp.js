@@ -15,8 +15,10 @@ router.get('/webhook', (req, res) => {
 
     if (mode && token) {
       const verificationResult = WhatsAppService.verifyWebhook(mode, token, challenge);
+      console.log('Verification result:', verificationResult);
       res.status(200).send(verificationResult);
     } else {
+      console.log('Missing required parameters');
       res.status(403).send('Forbidden');
     }
   } catch (error) {
@@ -28,12 +30,16 @@ router.get('/webhook', (req, res) => {
 // Webhook endpoint for receiving messages
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('Received webhook:', JSON.stringify(req.body, null, 2));
+    console.log('=== WEBHOOK RECEIVED ===');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('========================');
 
     // Process the incoming message
     const messageData = await WhatsAppService.processIncomingMessage(req.body);
     
     if (!messageData) {
+      console.log('No message data to process');
       return res.status(200).send('OK');
     }
 
