@@ -107,17 +107,7 @@ router.post('/webhook', async (req, res) => {
         });
 
         // Update message with local file path
-        await DatabaseService.saveMessage({
-          conversationId: conversation.conversation_id,
-          messageId: messageData.messageId,
-          fromNumber: messageData.from,
-          toNumber: messageData.to,
-          messageType: messageData.messageType,
-          content: messageData.content,
-          mediaUrl: messageData.mediaUrl,
-          localFilePath: localFilePath,
-          isFromUser: true
-        });
+        await DatabaseService.updateMessageLocalFilePath(messageData.messageId, localFilePath);
 
         console.log(`Media file saved: ${localFilePath}`);
       } catch (error) {

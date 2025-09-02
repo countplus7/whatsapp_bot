@@ -10,7 +10,7 @@ const openai = new OpenAI({
 class OpenAIService {
   constructor() {
     this.model = 'gpt-4';
-    this.visionModel = 'gpt-4-vision-preview';
+    this.visionModel = 'gpt-4o'; // Updated from deprecated gpt-4-vision-preview
   }
 
   async chatCompletion(messages, conversationHistory = []) {

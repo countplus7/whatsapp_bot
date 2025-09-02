@@ -121,6 +121,24 @@ class DatabaseService {
     }
   }
 
+  async updateMessageLocalFilePath(messageId, localFilePath) {
+    try {
+      const result = await pool.query(
+        'UPDATE messages SET local_file_path = $1 WHERE message_id = $2 RETURNING *',
+        [localFilePath, messageId]
+      );
+      
+      if (result.rows.length === 0) {
+        console.warn(`No message found with ID ${messageId} to update`);
+        return null;
+      }
+      
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error updating message local file path:', error);
+      throw error;
+    }
+  }
 
 }
 

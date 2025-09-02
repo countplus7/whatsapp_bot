@@ -172,7 +172,8 @@ class WhatsAppService {
         messageType = 'image';
         content = message.image.caption || '';
         mediaId = message.image.id;
-        mediaUrl = message.image.url;
+        // For images, we don't get a direct URL - we need to download using the media ID
+        mediaUrl = null;
       } else if (message.audio) {
         messageType = 'audio';
         mediaId = message.audio.id;
