@@ -1,21 +1,49 @@
-# WhatsApp AI Chatbot
+# WhatsApp AI Chatbot - Multi-Tenant Edition
 
-A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and OpenAI APIs. The bot supports text chat, image analysis with OCR, voice note transcription, and maintains complete chat history.
+A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and OpenAI APIs. The bot supports **multi-tenant architecture** where each company can have its own WhatsApp number and AI personality. The bot supports text chat, image analysis with OCR, voice note transcription, and maintains complete chat history per business.
 
 ## Features
 
-- **Text Chat**: Natural language conversations using GPT-4
+- **Multi-Tenant Architecture**: Each company has its own WhatsApp number and configuration
+- **Business Management**: Add, edit, and delete businesses through a web interface
+- **WhatsApp Configuration**: Store WhatsApp Business API credentials per business in database
+- **Custom AI Tones**: Each business can have multiple AI response tones (professional, casual, friendly, etc.)
+- **Text Chat**: Natural language conversations using GPT-4 with business-specific tone
 - **Image Analysis**: OCR and image description using GPT-4 Vision
 - **Voice Notes**: Speech-to-text conversion using OpenAI Whisper
-- **Chat History**: Complete conversation storage in PostgreSQL
+- **Chat History**: Complete conversation storage in PostgreSQL per business
 - **File Management**: Automatic upload and storage of images and audio files
 - **Webhook Integration**: Real-time message processing via WhatsApp Business API
+- **Web Interface**: Simple frontend to manage businesses, configurations, and tones
+
+## Multi-Tenant Features
+
+### Business Management
+- Create multiple businesses/companies
+- Each business can have its own WhatsApp number
+- Business status management (active/inactive)
+
+### WhatsApp Configuration
+- Store WhatsApp Business API credentials per business
+- Phone Number ID, Access Token, Verify Token, and Webhook URL
+- No need to store sensitive data in environment files
+
+### Business Tones
+- Define custom AI response personalities for each business
+- Multiple tones per business (e.g., Professional, Casual, Friendly)
+- Set default tone for automatic responses
+- Tone instructions guide AI behavior (e.g., "Be professional and formal", "Use casual language")
+
+### Data Isolation
+- All conversations, messages, and media files are isolated by business
+- Each business has its own chat history and context
+- Secure multi-tenant data architecture
 
 ## Prerequisites
 
 - Node.js (v16 or higher)
 - PostgreSQL database
-- WhatsApp Business API account
+- WhatsApp Business API account(s)
 - OpenAI API key
 
 ## Installation
@@ -49,11 +77,6 @@ A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and 
    DB_USER=your_db_user
    DB_PASSWORD=your_db_password
 
-   # WhatsApp Business Cloud API
-   WHATSAPP_TOKEN=your_whatsapp_business_token
-   WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-   WHATSAPP_VERIFY_TOKEN=your_webhook_verify_token
-
    # OpenAI Configuration
    OPENAI_API_KEY=your_openai_api_key
 
@@ -66,16 +89,21 @@ A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and 
    # Create user and database
    See PostgreSQL commands.
    
-   # Initialize database tables
+   # Initialize database tables (includes multi-tenant tables)
    npm run init-db
    ```
 
-5. **Test the setup**
+5. **Add sample data (optional but recommended for testing)**
+   ```bash
+   npm run add-sample-data
+   ```
+
+6. **Test the setup**
    ```bash
    npm run test-setup
    ```
 
-6. **Start the server**
+7. **Start the server**
    ```bash
    # Development mode
    npm run dev
@@ -84,11 +112,81 @@ A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and 
    npm start
    ```
 
-7. **Optional: Set up media cleanup (recommended for production)**
-   ```bash
-   # Clean up old media files (older than 30 days)
-   npm run cleanup
-   ```
+8. **Access the web interface**
+   - Open your browser and go to `http://localhost:8000`
+   - Use the web interface to manage businesses, WhatsApp configs, and tones
+
+## Database Schema
+
+The multi-tenant system includes these new tables:
+
+- **businesses**: Company information and status
+- **whatsapp_configs**: WhatsApp API configuration per business
+- **business_tones**: AI response tones and instructions per business
+- **conversations**: Updated to include business_id
+- **messages**: Updated to include business_id
+- **media_files**: Updated to include business_id
+
+## Usage
+
+### 1. Business Setup
+1. Access the web interface at `http://localhost:8000`
+2. Go to the "Businesses" tab
+3. Click "Add Business" and enter company details
+4. Set business status to "active"
+
+### 2. WhatsApp Configuration
+1. Go to the "WhatsApp Configs" tab
+2. Select a business from the dropdown
+3. Enter WhatsApp Business API credentials:
+   - Phone Number ID
+   - Access Token
+   - Verify Token (optional)
+   - Webhook URL (optional)
+
+### 3. Business Tones
+1. Go to the "Business Tones" tab
+2. Select a business from the dropdown
+3. Create tone with:
+   - Name (e.g., "Professional", "Casual")
+   - Description
+   - Tone Instructions (e.g., "Respond in a professional manner")
+   - Set as default (optional)
+
+### 4. Webhook Setup
+For each business, set up webhook in Meta Developer Console:
+- Webhook URL: `https://yourdomain.com/webhook`
+- Verify Token: Use the token from your WhatsApp config
+- Subscribe to messages and message_deliveries
+
+## API Endpoints
+
+### Business Management
+- `GET /api/businesses` - List all businesses
+- `POST /api/businesses` - Create new business
+- `GET /api/businesses/:id` - Get business details
+- `PUT /api/businesses/:id` - Update business
+- `DELETE /api/businesses/:id` - Delete business
+
+### WhatsApp Configuration
+- `POST /api/businesses/:businessId/whatsapp-config` - Create WhatsApp config
+- `PUT /api/whatsapp-config/:id` - Update WhatsApp config
+- `DELETE /api/whatsapp-config/:id` - Delete WhatsApp config
+
+### Business Tones
+- `GET /api/businesses/:businessId/tones` - List business tones
+- `POST /api/businesses/:businessId/tones` - Create tone
+- `PUT /api/tones/:id` - Update tone
+- `DELETE /api/tones/:id` - Delete tone
+
+## Sample Data
+
+The system includes sample data for testing:
+- 3 sample businesses (TechCorp, Green Earth, HealthCare)
+- WhatsApp configurations for each business
+- Custom tones for each business (Professional, Eco-Friendly, Caring)
+
+Run `npm run add-sample-data` to populate the database with sample data.
 
 ## WhatsApp Business API Setup
 
@@ -98,148 +196,51 @@ A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and 
 
 2. **Set up WhatsApp Business API**
    - Add WhatsApp product to your app
-   - Configure phone number
-   - Get your access token and phone number ID
+   - Configure webhook endpoints
+   - Generate access tokens
 
-3. **Configure Webhook**
-   - Set webhook URL: `https://your-domain.com/whatsapp/webhook`
-   - Set verify token (same as in .env file)
-   - Subscribe to messages events
-
-## API Endpoints
-
-### WhatsApp Webhook
-- `GET /whatsapp/webhook` - Webhook verification
-- `POST /whatsapp/webhook` - Receive messages
-
-### Health Check
-- `GET /health` - Server health status
-
-## Usage Examples
-
-*The WhatsApp AI chatbot automatically processes media files received through WhatsApp messages. No manual file uploads are needed.*
-
-## File Structure
-
-```
-whatsapp_bot/
-├── config/
-│   └── database.js          # Database configuration
-├── routes/
-│   └── whatsapp.js          # WhatsApp webhook routes
-├── services/
-│   ├── database.js          # Database operations
-│   ├── openai.js            # OpenAI API integration
-│   └── whatsapp.js          # WhatsApp API integration
-├── scripts/
-│   └── init-database.js     # Database initialization
-├── uploads/
-│   ├── images/              # Uploaded images
-│   └── audio/               # Uploaded audio files
-├── server.js                # Main server file
-├── package.json
-├── env.example
-└── README.md
-```
-
-## Database Schema
-
-### Conversations Table
-- `id` - Primary key
-- `whatsapp_number` - User's WhatsApp number
-- `conversation_id` - Unique conversation identifier
-- `created_at` - Conversation creation timestamp
-- `updated_at` - Last activity timestamp
-
-### Messages Table
-- `id` - Primary key
-- `conversation_id` - Foreign key to conversations
-- `message_id` - Unique message identifier
-- `from_number` - Sender's number
-- `to_number` - Recipient's number
-- `message_type` - Type of message (text, image, audio)
-- `content` - Message content
-- `media_url` - WhatsApp media URL
-- `local_file_path` - Local file path
-- `timestamp` - Message timestamp
-- `is_from_user` - Whether message is from user
-- `ai_response` - AI-generated response
-
-### Media Files Table
-- `id` - Primary key
-- `message_id` - Foreign key to messages
-- `file_type` - Type of file (image, audio)
-- `original_filename` - Original filename
-- `local_file_path` - Local file path
-- `file_size` - File size in bytes
-- `mime_type` - File MIME type
-- `created_at` - Upload timestamp
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `PORT` | Server port | No (default: 3000) |
-| `NODE_ENV` | Environment mode | No (default: development) |
-| `DB_HOST` | PostgreSQL host | Yes |
-| `DB_PORT` | PostgreSQL port | No (default: 5432) |
-| `DB_NAME` | Database name | Yes |
-| `DB_USER` | Database user | Yes |
-| `DB_PASSWORD` | Database password | Yes |
-| `WHATSAPP_TOKEN` | WhatsApp Business API token | Yes |
-| `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp phone number ID | Yes |
-| `WHATSAPP_VERIFY_TOKEN` | Webhook verification token | Yes |
-| `OPENAI_API_KEY` | OpenAI API key | Yes |
-| `MAX_FILE_SIZE` | Maximum media file size | No (default: 10MB) |
+3. **For Multi-Tenant Setup**
+   - Each business needs its own WhatsApp Business Account
+   - Configure webhook for each business
+   - Store credentials in the database (not in environment files)
 
 ## Security Features
 
-- Rate limiting (100 requests per 15 minutes)
-- Helmet.js for security headers
-- CORS configuration
-- Environment-based static file serving
-- File size limits
-- Input validation and sanitization
+- **Multi-tenant data isolation**: Each business's data is completely separated
+- **Database-level security**: Foreign key constraints ensure data integrity
+- **No sensitive data in code**: All WhatsApp credentials stored in database
+- **Input validation**: All API endpoints validate input data
+- **Rate limiting**: Built-in rate limiting for API endpoints
 
-## Error Handling
+## Production Considerations
 
-The application includes comprehensive error handling:
-- Database connection errors
-- API rate limiting
-- File upload errors
-- Invalid message types
-- Network timeouts
-
-## Logging
-
-All operations are logged to console with appropriate error levels:
-- Info: Normal operations
-- Error: Error conditions
-- Debug: Detailed debugging information
+- **Database backups**: Regular backups of business data
+- **SSL/TLS**: Use HTTPS in production
+- **Environment variables**: Secure database credentials
+- **Monitoring**: Monitor webhook delivery and API usage
+- **Scaling**: Consider database connection pooling for multiple businesses
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Database Connection Error**
-   - Verify PostgreSQL is running
-   - Check database credentials in .env
-   - Ensure database exists
+1. **Webhook verification fails**
+   - Check verify token in WhatsApp config
+   - Ensure webhook URL is accessible
 
-2. **WhatsApp Webhook Not Working**
-   - Verify webhook URL is accessible
-   - Check verify token matches
-   - Ensure SSL certificate is valid
+2. **Messages not processed**
+   - Verify WhatsApp config is active
+   - Check business status is "active"
+   - Verify OpenAI API key is valid
 
-3. **OpenAI API Errors**
-   - Verify API key is correct
-   - Check API quota and billing
-   - Ensure proper model access
+3. **Database connection issues**
+   - Check PostgreSQL connection settings
+   - Ensure database tables are created
+   - Run `npm run init-db` to recreate tables
 
-4. **File Upload Issues**
-   - Check upload directory permissions
-   - Verify file size limits
-   - Ensure supported file types
+### Debug Mode
+
+Enable debug logging by setting `NODE_ENV=development` in your environment variables.
 
 ## Contributing
 
@@ -251,11 +252,4 @@ All operations are logged to console with appropriate error levels:
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Support
-
-For support and questions:
-- Create an issue in the repository
-- Check the troubleshooting section
-- Review the API documentation 
+This project is licensed under the MIT License. 

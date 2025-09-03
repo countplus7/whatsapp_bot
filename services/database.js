@@ -1,14 +1,14 @@
 const pool = require('../config/database');
 
 class DatabaseService {
-  async createOrGetConversation(whatsappNumber) {
+  async createOrGetConversation(businessId, whatsappNumber) {
     try {
-      const conversationId = `conv_${whatsappNumber}_${Date.now()}`;
+      const conversationId = `conv_${businessId}_${whatsappNumber}_${Date.now()}`;
       
       // Check if conversation exists
       const existingConversation = await pool.query(
-        'SELECT * FROM conversations WHERE whatsapp_number = $1 ORDER BY updated_at DESC LIMIT 1',
-        [whatsappNumber]
+        'SELECT * FROM conversations WHERE business_id = $1 AND whatsapp_number = $2 ORDER BY updated_at DESC LIMIT 1',
+        [businessId, whatsappNumber]
       );
 
       if (existingConversation.rows.length > 0) {
@@ -21,8 +21,8 @@ class DatabaseService {
       } else {
         // Create new conversation
         const newConversation = await pool.query(
-          'INSERT INTO conversations (whatsapp_number, conversation_id) VALUES ($1, $2) RETURNING *',
-          [whatsappNumber, conversationId]
+          'INSERT INTO conversations (business_id, whatsapp_number, conversation_id) VALUES ($1, $2, $3) RETURNING *',
+          [businessId, whatsappNumber, conversationId]
         );
         return newConversation.rows[0];
       }
@@ -35,6 +35,7 @@ class DatabaseService {
   async saveMessage(messageData) {
     try {
       const {
+        businessId,
         conversationId,
         messageId,
         fromNumber,
@@ -49,10 +50,10 @@ class DatabaseService {
 
       const result = await pool.query(
         `INSERT INTO messages 
-        (conversation_id, message_id, from_number, to_number, message_type, content, media_url, local_file_path, is_from_user, ai_response)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        (business_id, conversation_id, message_id, from_number, to_number, message_type, content, media_url, local_file_path, is_from_user, ai_response)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *`,
-        [conversationId, messageId, fromNumber, toNumber, messageType, content, mediaUrl, localFilePath, isFromUser, aiResponse]
+        [businessId, conversationId, messageId, fromNumber, toNumber, messageType, content, mediaUrl, localFilePath, isFromUser, aiResponse]
       );
 
       return result.rows[0];
@@ -65,6 +66,7 @@ class DatabaseService {
   async saveMediaFile(mediaData) {
     try {
       const {
+        businessId,
         messageId,
         fileType,
         originalFilename,
@@ -75,10 +77,10 @@ class DatabaseService {
 
       const result = await pool.query(
         `INSERT INTO media_files 
-        (message_id, file_type, original_filename, local_file_path, file_size, mime_type)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        (business_id, message_id, file_type, original_filename, local_file_path, file_size, mime_type)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *`,
-        [messageId, fileType, originalFilename, localFilePath, fileSize, mimeType]
+        [businessId, messageId, fileType, originalFilename, localFilePath, fileSize, mimeType]
       );
 
       return result.rows[0];
@@ -88,9 +90,7 @@ class DatabaseService {
     }
   }
 
-
-
-  async getConversationHistoryForAI(whatsappNumber, limit = 10) {
+  async getConversationHistoryForAI(businessId, whatsappNumber, limit = 10) {
     try {
       const result = await pool.query(
         `SELECT 
@@ -105,10 +105,10 @@ class DatabaseService {
           END as content
          FROM messages m
          JOIN conversations c ON m.conversation_id = c.conversation_id
-         WHERE c.whatsapp_number = $1
+         WHERE c.business_id = $1 AND c.whatsapp_number = $2
          ORDER BY m.timestamp DESC
-         LIMIT $2`,
-        [whatsappNumber, limit]
+         LIMIT $3`,
+        [businessId, whatsappNumber, limit]
       );
 
       return result.rows.reverse().map(row => ({

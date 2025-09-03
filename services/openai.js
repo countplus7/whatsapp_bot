@@ -13,13 +13,20 @@ class OpenAIService {
     this.visionModel = 'gpt-4o'; // Updated from deprecated gpt-4-vision-preview
   }
 
-  async chatCompletion(messages, conversationHistory = []) {
+  async chatCompletion(messages, conversationHistory = [], businessTone = null) {
     try {
+      let systemContent = `You are a helpful AI assistant integrated with WhatsApp. 
+      Be conversational, friendly, and helpful. Keep responses concise but informative.
+      If you're analyzing images, describe what you see clearly and provide relevant insights.`;
+
+      // Apply business-specific tone if provided
+      if (businessTone && businessTone.tone_instructions) {
+        systemContent += `\n\n${businessTone.tone_instructions}`;
+      }
+
       const systemMessage = {
         role: 'system',
-        content: `You are a helpful AI assistant integrated with WhatsApp. 
-        Be conversational, friendly, and helpful. Keep responses concise but informative.
-        If you're analyzing images, describe what you see clearly and provide relevant insights.`
+        content: systemContent
       };
 
       const allMessages = [systemMessage, ...conversationHistory, ...messages];
@@ -38,7 +45,7 @@ class OpenAIService {
     }
   }
 
-  async analyzeImage(imagePath, userMessage = '') {
+  async analyzeImage(imagePath, userMessage = '', businessTone = null) {
     try {
       // Check if file exists
       if (!fs.existsSync(imagePath)) {
@@ -48,13 +55,20 @@ class OpenAIService {
       const imageBuffer = fs.readFileSync(imagePath);
       const base64Image = imageBuffer.toString('base64');
 
+      let promptText = userMessage || 'Please analyze this image and describe what you see. If there is any text in the image, please read it out clearly. Provide a detailed description including any text, objects, people, or important details you can identify.';
+      
+      // Apply business-specific tone if provided
+      if (businessTone && businessTone.tone_instructions) {
+        promptText += `\n\n${businessTone.tone_instructions}`;
+      }
+
       const messages = [
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: userMessage || 'Please analyze this image and describe what you see. If there is any text in the image, please read it out clearly. Provide a detailed description including any text, objects, people, or important details you can identify.'
+              text: promptText
             },
             {
               type: 'image_url',
@@ -100,11 +114,11 @@ class OpenAIService {
       return response;
     } catch (error) {
       console.error('OpenAI transcription error:', error);
-      throw new Error('Failed to transcribe audio');
+      throw error;
     }
   }
 
-  async processMessage(messageType, content, filePath = null, conversationHistory = []) {
+  async processMessage(messageType, content, filePath = null, conversationHistory = [], businessTone = null) {
     try {
       let aiResponse = '';
 
@@ -112,18 +126,18 @@ class OpenAIService {
         case 'text':
           aiResponse = await this.chatCompletion([
             { role: 'user', content: content }
-          ], conversationHistory);
+          ], conversationHistory, businessTone);
           break;
 
         case 'image':
           if (!filePath) {
             throw new Error('Image file path is required for image analysis');
           }
-          const imageAnalysis = await this.analyzeImage(filePath, content);
+          const imageAnalysis = await this.analyzeImage(filePath, content, businessTone);
           // Combine image analysis with conversation history for better context
           aiResponse = await this.chatCompletion([
             { role: 'user', content: `Image analysis: ${imageAnalysis}. User message: ${content || 'Please respond to this image.'}` }
-          ], conversationHistory);
+          ], conversationHistory, businessTone);
           break;
 
         case 'audio':
@@ -133,7 +147,7 @@ class OpenAIService {
           const transcription = await this.transcribeAudio(filePath);
           aiResponse = await this.chatCompletion([
             { role: 'user', content: `Transcribed audio: "${transcription}". Please respond to this message naturally and conversationally.` }
-          ], conversationHistory);
+          ], conversationHistory, businessTone);
           break;
 
         default:

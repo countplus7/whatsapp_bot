@@ -6,12 +6,21 @@ const fs = require('fs');
 class WhatsAppService {
   constructor() {
     this.baseURL = 'https://graph.facebook.com/v18.0';
-    this.phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    this.accessToken = process.env.WHATSAPP_TOKEN;
+  }
+
+  // Set configuration for a specific business
+  setBusinessConfig(config) {
+    this.phoneNumberId = config.phone_number_id;
+    this.accessToken = config.access_token;
+    this.verifyToken = config.verify_token;
   }
 
   async sendTextMessage(to, text) {
     try {
+      if (!this.phoneNumberId || !this.accessToken) {
+        throw new Error('WhatsApp configuration not set. Please set business config first.');
+      }
+
       const response = await axios.post(
         `${this.baseURL}/${this.phoneNumberId}/messages`,
         {
@@ -39,6 +48,10 @@ class WhatsAppService {
 
   async sendImageMessage(to, imageUrl, caption = '') {
     try {
+      if (!this.phoneNumberId || !this.accessToken) {
+        throw new Error('WhatsApp configuration not set. Please set business config first.');
+      }
+
       const response = await axios.post(
         `${this.baseURL}/${this.phoneNumberId}/messages`,
         {
@@ -67,6 +80,10 @@ class WhatsAppService {
 
   async sendAudioMessage(to, audioUrl) {
     try {
+      if (!this.phoneNumberId || !this.accessToken) {
+        throw new Error('WhatsApp configuration not set. Please set business config first.');
+      }
+
       const response = await axios.post(
         `${this.baseURL}/${this.phoneNumberId}/messages`,
         {
@@ -94,6 +111,10 @@ class WhatsAppService {
 
   async downloadMedia(mediaId) {
     try {
+      if (!this.accessToken) {
+        throw new Error('WhatsApp configuration not set. Please set business config first.');
+      }
+
       // First, get the media URL
       const mediaResponse = await axios.get(
         `${this.baseURL}/${mediaId}`,
@@ -122,7 +143,7 @@ class WhatsAppService {
   }
 
   verifyWebhook(mode, token, challenge) {
-    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+    if (mode === 'subscribe' && token === this.verifyToken) {
       return challenge;
     }
     console.log('Webhook verification failed');

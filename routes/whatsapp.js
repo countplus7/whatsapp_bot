@@ -3,6 +3,7 @@ const router = express.Router();
 const WhatsAppService = require('../services/whatsapp');
 const OpenAIService = require('../services/openai');
 const DatabaseService = require('../services/database');
+const BusinessService = require('../services/business');
 const path = require('path');
 const fs = require('fs-extra');
 
@@ -14,6 +15,9 @@ router.get('/webhook', (req, res) => {
     const challenge = req.query['hub.challenge'];
 
     if (mode && token) {
+      // For webhook verification, we need to identify which business this is for
+      // We'll use a default business for now, but in production you might want to
+      // identify this from the webhook URL or other parameters
       const verificationResult = WhatsAppService.verifyWebhook(mode, token, challenge);
       console.log('Verification result:', verificationResult);
       res.status(200).send(verificationResult);
@@ -45,11 +49,29 @@ router.post('/webhook', async (req, res) => {
 
     console.log('Processed message data:', messageData);
 
+    // Identify the business from the phone number ID
+    const whatsappConfig = await BusinessService.getWhatsAppConfigByPhoneNumber(messageData.to);
+    if (!whatsappConfig) {
+      console.error('No WhatsApp configuration found for phone number:', messageData.to);
+      return res.status(200).send('OK');
+    }
+
+    const businessId = whatsappConfig.business_id;
+    console.log(`Processing message for business ID: ${businessId}`);
+
+    // Set WhatsApp service configuration for this business
+    WhatsAppService.setBusinessConfig(whatsappConfig);
+
+    // Get business tone for AI responses
+    const businessTone = await BusinessService.getDefaultTone(businessId);
+    console.log(`Using business tone: ${businessTone ? businessTone.name : 'default'}`);
+
     // Create or get conversation
-    const conversation = await DatabaseService.createOrGetConversation(messageData.from);
+    const conversation = await DatabaseService.createOrGetConversation(businessId, messageData.from);
 
     // Save the incoming message
     const savedMessage = await DatabaseService.saveMessage({
+      businessId: businessId,
       conversationId: conversation.conversation_id,
       messageId: messageData.messageId,
       fromNumber: messageData.from,
@@ -73,7 +95,7 @@ router.post('/webhook', async (req, res) => {
         // Determine file extension and path
         const timestamp = Date.now();
         const fileExtension = messageData.messageType === 'image' ? '.jpg' : '.ogg';
-        const fileName = `${messageData.messageId}_${timestamp}${fileExtension}`;
+        const fileName = `${businessId}_${messageData.messageId}_${timestamp}${fileExtension}`;
         const uploadDir = messageData.messageType === 'image' ? 'uploads/images' : 'uploads/audio';
         localFilePath = path.join(uploadDir, fileName);
 
@@ -98,6 +120,7 @@ router.post('/webhook', async (req, res) => {
 
         // Save media file info to database
         await DatabaseService.saveMediaFile({
+          businessId: businessId,
           messageId: messageData.messageId,
           fileType: messageData.messageType,
           originalFilename: fileName,
@@ -117,17 +140,18 @@ router.post('/webhook', async (req, res) => {
     }
 
     // Get conversation history for context
-    const conversationHistory = await DatabaseService.getConversationHistoryForAI(messageData.from, 10);
+    const conversationHistory = await DatabaseService.getConversationHistoryForAI(businessId, messageData.from, 10);
     console.log(`Retrieved ${conversationHistory.length} previous messages for context`);
 
-    // Process message with AI
+    // Process message with AI (including business tone)
     try {
       console.log(`Processing ${messageData.messageType} message with AI...`);
       aiResponse = await OpenAIService.processMessage(
         messageData.messageType,
         messageData.content,
         localFilePath,
-        conversationHistory
+        conversationHistory,
+        businessTone
       );
       console.log('AI response generated successfully');
     } catch (error) {
@@ -138,6 +162,7 @@ router.post('/webhook', async (req, res) => {
     // Save AI response
     const aiMessageId = `ai_${messageData.messageId}_${Date.now()}`;
     await DatabaseService.saveMessage({
+      businessId: businessId,
       conversationId: conversation.conversation_id,
       messageId: aiMessageId,
       fromNumber: messageData.to,

@@ -8,6 +8,7 @@ const fs = require('fs-extra');
 
 // Import routes
 const whatsappRoutes = require('./routes/whatsapp');
+const businessRoutes = require('./routes/business');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -46,6 +47,9 @@ if (process.env.NODE_ENV === 'development') {
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 }
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   const fs = require('fs-extra');
@@ -73,6 +77,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/', whatsappRoutes);
+app.use('/api', businessRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
