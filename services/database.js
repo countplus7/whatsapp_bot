@@ -129,6 +129,88 @@ class DatabaseService {
       throw error;
     }
   }
+
+  // Get all conversations for a business
+  async getBusinessConversations(businessId) {
+    try {
+      const result = await pool.query(
+        `SELECT 
+          c.id,
+          c.phone_number,
+          c.status,
+          c.created_at,
+          c.updated_at,
+          COUNT(m.id) as message_count,
+          MAX(m.created_at) as last_message_at
+         FROM conversations c
+         LEFT JOIN messages m ON c.id = m.conversation_id
+         WHERE c.business_id = $1
+         GROUP BY c.id, c.phone_number, c.status, c.created_at, c.updated_at
+         ORDER BY last_message_at DESC NULLS LAST, c.created_at DESC`,
+        [businessId]
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting business conversations:', error);
+      throw error;
+    }
+  }
+
+  // Get messages for a specific conversation
+  async getConversationMessages(conversationId, limit = 50, offset = 0) {
+    try {
+      const result = await pool.query(
+        `SELECT 
+          m.id,
+          m.message_id,
+          m.from_number,
+          m.to_number,
+          m.message_type,
+          m.content,
+          m.media_url,
+          m.direction,
+          m.status,
+          m.created_at,
+          mf.file_name,
+          mf.file_path,
+          mf.file_type
+         FROM messages m
+         LEFT JOIN media_files mf ON m.id = mf.message_id
+         WHERE m.conversation_id = $1
+         ORDER BY m.created_at ASC
+         LIMIT $2 OFFSET $3`,
+        [conversationId, limit, offset]
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting conversation messages:', error);
+      throw error;
+    }
+  }
+
+  // Get conversation details
+  async getConversationDetails(conversationId) {
+    try {
+      const result = await pool.query(
+        `SELECT 
+          c.id,
+          c.business_id,
+          c.phone_number,
+          c.status,
+          c.created_at,
+          c.updated_at,
+          b.name as business_name
+         FROM conversations c
+         JOIN businesses b ON c.business_id = b.id
+         WHERE c.id = $1`,
+        [conversationId]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error getting conversation details:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new DatabaseService(); 

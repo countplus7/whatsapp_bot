@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const businessService = require('../services/business');
+const DatabaseService = require('../services/database');
 
 // Input validation middleware
 const validateBusiness = (req, res, next) => {
@@ -411,6 +412,78 @@ router.put('/tones/:id', validateBusinessTone, async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to update business tone',
+      message: error.message 
+    });
+  }
+});
+
+// Get all conversations for a business
+router.get('/businesses/:businessId/conversations', async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    
+    if (!businessId || isNaN(parseInt(businessId))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid business ID' 
+      });
+    }
+    
+    const conversations = await DatabaseService.getBusinessConversations(businessId);
+    
+    res.json({
+      success: true,
+      data: conversations,
+      count: conversations.length
+    });
+  } catch (error) {
+    console.error('Error getting business conversations:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to get conversations',
+      message: error.message 
+    });
+  }
+});
+
+// Get messages for a specific conversation
+router.get('/conversations/:conversationId/messages', async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+    
+    if (!conversationId || isNaN(parseInt(conversationId))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid conversation ID' 
+      });
+    }
+    
+    const messages = await DatabaseService.getConversationMessages(
+      conversationId, 
+      parseInt(limit), 
+      parseInt(offset)
+    );
+    
+    const conversation = await DatabaseService.getConversationDetails(conversationId);
+    
+    res.json({
+      success: true,
+      data: {
+        conversation,
+        messages,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          count: messages.length
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error getting conversation messages:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to get messages',
       message: error.message 
     });
   }
