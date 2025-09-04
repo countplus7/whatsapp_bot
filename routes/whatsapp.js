@@ -198,6 +198,32 @@ router.post('/webhook', async (req, res) => {
       console.log('AI response sent to WhatsApp successfully');
     } catch (error) {
       console.error('Error sending response to WhatsApp:', error);
+      
+      // Check if it's a token expiration error
+      if (error.message.includes('access token has expired')) {
+        console.error(' CRITICAL: WhatsApp access token has expired for business ID:', businessId);
+        console.error('Please update the access token in the WhatsApp configuration for this business.');
+        
+        // Save a message indicating the token issue
+        try {
+          await DatabaseService.saveMessage({
+            businessId: businessId,
+            conversationId: conversation.id,
+            messageId: `error_${messageData.messageId}_${Date.now()}`,
+            fromNumber: 'system',
+            toNumber: messageData.from,
+            messageType: 'text',
+            content: 'Sorry, there was an issue sending the response. Please contact support.',
+            mediaUrl: null,
+            localFilePath: null,
+            isFromUser: false,
+            aiResponse: 'Token expired - unable to send response'
+          });
+        } catch (saveError) {
+          console.error('Error saving token expiration message:', saveError);
+        }
+      }
+      
       // Don't fail the webhook, just log the error
     }
 

@@ -15,6 +15,16 @@ class WhatsAppService {
     this.verifyToken = config.verify_token;
   }
 
+  // Check if error is due to expired token
+  isTokenExpiredError(error) {
+    const errorData = error.response?.data?.error;
+    return errorData && (
+      errorData.code === 190 || 
+      errorData.type === 'OAuthException' ||
+      (errorData.message && errorData.message.includes('Session has expired'))
+    );
+  }
+
   async sendTextMessage(to, text) {
     try {
       if (!this.phoneNumberId || !this.accessToken) {
@@ -42,6 +52,14 @@ class WhatsAppService {
       return response.data;
     } catch (error) {
       console.error('Error sending text message:', error.response?.data || error.message);
+      
+      if (this.isTokenExpiredError(error)) {
+        console.error(' WHATSAPP ACCESS TOKEN HAS EXPIRED! ');
+        console.error('Please update the access token in your WhatsApp configuration.');
+        console.error('You can get a new token from: https://developers.facebook.com/apps/');
+        throw new Error('WhatsApp access token has expired. Please update the token in your business configuration.');
+      }
+      
       throw new Error('Failed to send WhatsApp message');
     }
   }
@@ -74,7 +92,14 @@ class WhatsAppService {
       return response.data;
     } catch (error) {
       console.error('Error sending image message:', error.response?.data || error.message);
-      throw new Error('Failed to send WhatsApp image');
+      
+      if (this.isTokenExpiredError(error)) {
+        console.error(' WHATSAPP ACCESS TOKEN HAS EXPIRED! ');
+        console.error('Please update the access token in your WhatsApp configuration.');
+        throw new Error('WhatsApp access token has expired. Please update the token in your business configuration.');
+      }
+      
+      throw new Error('Failed to send WhatsApp image message');
     }
   }
 
@@ -105,7 +130,14 @@ class WhatsAppService {
       return response.data;
     } catch (error) {
       console.error('Error sending audio message:', error.response?.data || error.message);
-      throw new Error('Failed to send WhatsApp audio');
+      
+      if (this.isTokenExpiredError(error)) {
+        console.error(' WHATSAPP ACCESS TOKEN HAS EXPIRED! ');
+        console.error('Please update the access token in your WhatsApp configuration.');
+        throw new Error('WhatsApp access token has expired. Please update the token in your business configuration.');
+      }
+      
+      throw new Error('Failed to send WhatsApp audio message');
     }
   }
 
@@ -115,8 +147,7 @@ class WhatsAppService {
         throw new Error('WhatsApp configuration not set. Please set business config first.');
       }
 
-      // First, get the media URL
-      const mediaResponse = await axios.get(
+      const response = await axios.get(
         `${this.baseURL}/${mediaId}`,
         {
           headers: {
@@ -125,29 +156,36 @@ class WhatsAppService {
         }
       );
 
-      const mediaUrl = mediaResponse.data.url;
-
-      // Download the media file
-      const downloadResponse = await axios.get(mediaUrl, {
+      const mediaUrl = response.data.url;
+      const mediaResponse = await axios.get(mediaUrl, {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`
         },
         responseType: 'stream'
       });
 
-      return downloadResponse.data;
+      return mediaResponse.data;
     } catch (error) {
       console.error('Error downloading media:', error.response?.data || error.message);
+      
+      if (this.isTokenExpiredError(error)) {
+        console.error(' WHATSAPP ACCESS TOKEN HAS EXPIRED! ');
+        console.error('Please update the access token in your WhatsApp configuration.');
+        throw new Error('WhatsApp access token has expired. Please update the token in your business configuration.');
+      }
+      
       throw new Error('Failed to download media from WhatsApp');
     }
   }
 
   verifyWebhook(mode, token, challenge) {
     if (mode === 'subscribe' && token === this.verifyToken) {
+      console.log('Webhook verified successfully');
       return challenge;
+    } else {
+      console.log('Webhook verification failed');
+      return null;
     }
-    console.log('Webhook verification failed');
-    throw new Error('Invalid webhook verification');
   }
 
   async processIncomingMessage(body) {
