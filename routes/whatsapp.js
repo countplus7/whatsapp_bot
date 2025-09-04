@@ -85,11 +85,12 @@ router.post('/webhook', async (req, res) => {
 
     // Create or get conversation
     const conversation = await DatabaseService.createOrGetConversation(businessId, messageData.from);
+    console.log('Conversation created/found:', { id: conversation.id, business_id: conversation.business_id, phone_number: conversation.phone_number });
 
     // Save the incoming message
     const savedMessage = await DatabaseService.saveMessage({
       businessId: businessId,
-      conversationId: conversation.conversation_id,
+      conversationId: conversation.id,
       messageId: messageData.messageId,
       fromNumber: messageData.from,
       toNumber: messageData.to,
@@ -179,7 +180,7 @@ router.post('/webhook', async (req, res) => {
     const aiMessageId = `ai_${messageData.messageId}_${Date.now()}`;
     await DatabaseService.saveMessage({
       businessId: businessId,
-      conversationId: conversation.conversation_id,
+      conversationId: conversation.id, // Use conversation.id instead of conversation.conversation_id
       messageId: aiMessageId,
       fromNumber: messageData.to,
       toNumber: messageData.from,
