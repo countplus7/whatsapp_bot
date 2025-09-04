@@ -40,23 +40,10 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-const allowedOrigins = [
-  "http://localhost:8080", // development
-  "https://labstarlabs.com", // production
-];
-
 // CORS configuration for frontend integration
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: process.env.FRONTEND_URL || "http://localhost:8080", // Updated to match your frontend port
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
