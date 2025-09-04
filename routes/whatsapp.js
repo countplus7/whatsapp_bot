@@ -141,16 +141,15 @@ router.post('/webhook', async (req, res) => {
         const fileStats = fs.statSync(localFilePath);
         await DatabaseService.saveMediaFile({
           businessId: businessId,
-          messageId: messageData.messageId,
-          mediaId: messageData.mediaId,
-          mediaType: messageData.messageType,
-          mediaUrl: messageData.mediaUrl,
-          localFilePath: localFilePath,
+          messageId: savedMessage.id, // Use the database ID, not the WhatsApp message ID
+          fileName: fileName,
+          filePath: localFilePath,
+          fileType: messageData.messageType,
           fileSize: fileStats.size
         });
 
-        // Update message with local file path
-        await DatabaseService.updateMessageLocalFilePath(savedMessage.id, localFilePath);
+        // Update message with local file path (this will update the media_files table)
+        await DatabaseService.updateMessageLocalFilePath(messageData.messageId, localFilePath);
 
         console.log(`Media file saved: ${localFilePath}`);
       } catch (error) {

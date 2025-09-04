@@ -3,11 +3,9 @@ const pool = require('../config/database');
 class DatabaseService {
   async createOrGetConversation(businessId, whatsappNumber) {
     try {
-      const conversationId = `conv_${businessId}_${whatsappNumber}_${Date.now()}`;
-      
       // Check if conversation exists
       const existingConversation = await pool.query(
-        'SELECT * FROM conversations WHERE business_id = $1 AND whatsapp_number = $2 ORDER BY updated_at DESC LIMIT 1',
+        'SELECT * FROM conversations WHERE business_id = $1 AND phone_number = $2 ORDER BY updated_at DESC LIMIT 1',
         [businessId, whatsappNumber]
       );
 
@@ -21,8 +19,8 @@ class DatabaseService {
       } else {
         // Create new conversation
         const newConversation = await pool.query(
-          'INSERT INTO conversations (business_id, whatsapp_number, conversation_id) VALUES ($1, $2, $3) RETURNING *',
-          [businessId, whatsappNumber, conversationId]
+          'INSERT INTO conversations (business_id, phone_number) VALUES ($1, $2) RETURNING *',
+          [businessId, whatsappNumber]
         );
         return newConversation.rows[0];
       }
@@ -34,28 +32,24 @@ class DatabaseService {
 
   async saveMessage(messageData) {
     try {
-      const {
-        businessId,
-        conversationId,
-        messageId,
-        fromNumber,
-        toNumber,
-        messageType,
-        content,
-        mediaUrl,
-        localFilePath,
-        isFromUser = true,
-        aiResponse = null
-      } = messageData;
-
       const result = await pool.query(
-        `INSERT INTO messages 
-        (business_id, conversation_id, message_id, from_number, to_number, message_type, content, media_url, local_file_path, is_from_user, ai_response)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING *`,
-        [businessId, conversationId, messageId, fromNumber, toNumber, messageType, content, mediaUrl, localFilePath, isFromUser, aiResponse]
+        `INSERT INTO messages (
+          business_id, conversation_id, message_id, from_number, to_number, 
+          message_type, content, media_url, direction, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [
+          messageData.businessId,
+          messageData.conversationId,
+          messageData.messageId,
+          messageData.fromNumber,
+          messageData.toNumber,
+          messageData.messageType,
+          messageData.content,
+          messageData.mediaUrl,
+          messageData.isFromUser ? 'inbound' : 'outbound',
+          'received'
+        ]
       );
-
       return result.rows[0];
     } catch (error) {
       console.error('Error saving message:', error);
@@ -65,24 +59,19 @@ class DatabaseService {
 
   async saveMediaFile(mediaData) {
     try {
-      const {
-        businessId,
-        messageId,
-        fileType,
-        originalFilename,
-        localFilePath,
-        fileSize,
-        mimeType
-      } = mediaData;
-
       const result = await pool.query(
-        `INSERT INTO media_files 
-        (business_id, message_id, file_type, original_filename, local_file_path, file_size, mime_type)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING *`,
-        [businessId, messageId, fileType, originalFilename, localFilePath, fileSize, mimeType]
+        `INSERT INTO media_files (
+          business_id, message_id, file_name, file_path, file_type, file_size
+        ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [
+          mediaData.businessId,
+          mediaData.messageId,
+          mediaData.fileName,
+          mediaData.filePath,
+          mediaData.fileType,
+          mediaData.fileSize
+        ]
       );
-
       return result.rows[0];
     } catch (error) {
       console.error('Error saving media file:', error);
@@ -95,18 +84,18 @@ class DatabaseService {
       const result = await pool.query(
         `SELECT 
           CASE 
-            WHEN m.is_from_user THEN 'user'
+            WHEN m.direction = 'inbound' THEN 'user'
             ELSE 'assistant'
           END as role,
           CASE 
-            WHEN m.message_type = 'audio' THEN CONCAT('Audio message: ', COALESCE(m.ai_response, 'Transcribed audio'))
-            WHEN m.message_type = 'image' THEN CONCAT('Image: ', COALESCE(m.content, ''), ' - ', COALESCE(m.ai_response, 'Image analyzed'))
+            WHEN m.message_type = 'audio' THEN CONCAT('Audio message: ', COALESCE(m.content, 'Transcribed audio'))
+            WHEN m.message_type = 'image' THEN CONCAT('Image: ', COALESCE(m.content, ''), ' - Image analyzed')
             ELSE m.content
           END as content
          FROM messages m
-         JOIN conversations c ON m.conversation_id = c.conversation_id
-         WHERE c.business_id = $1 AND c.whatsapp_number = $2
-         ORDER BY m.timestamp DESC
+         JOIN conversations c ON m.conversation_id = c.id
+         WHERE c.business_id = $1 AND c.phone_number = $2
+         ORDER BY m.created_at DESC
          LIMIT $3`,
         [businessId, whatsappNumber, limit]
       );
@@ -123,13 +112,14 @@ class DatabaseService {
 
   async updateMessageLocalFilePath(messageId, localFilePath) {
     try {
+      // Since messages table doesn't have local_file_path, we'll update the media_files table instead
       const result = await pool.query(
-        'UPDATE messages SET local_file_path = $1 WHERE message_id = $2 RETURNING *',
+        'UPDATE media_files SET file_path = $1 WHERE message_id = (SELECT id FROM messages WHERE message_id = $2) RETURNING *',
         [localFilePath, messageId]
       );
       
       if (result.rows.length === 0) {
-        console.warn(`No message found with ID ${messageId} to update`);
+        console.warn(`No media file found for message ID ${messageId} to update`);
         return null;
       }
       
@@ -139,7 +129,6 @@ class DatabaseService {
       throw error;
     }
   }
-
 }
 
 module.exports = new DatabaseService(); 
