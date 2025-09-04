@@ -69,7 +69,7 @@ Edit `.env` file with your configuration:
 # Server Configuration
 PORT=8000
 NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:8080
 
 # Database Configuration
 DB_HOST=localhost
@@ -162,7 +162,7 @@ const getBusinesses = async () => {
 ### CORS Configuration
 
 The API is configured to accept requests from:
-- Development: `http://localhost:3000` (configurable)
+- Development: `http://localhost:8080` (configurable)
 - Production: Set via `FRONTEND_URL` environment variable
 
 ## 📊 Database Schema

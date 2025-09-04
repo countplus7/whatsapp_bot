@@ -222,19 +222,6 @@ class BusinessService {
     }
   }
 
-  async deleteBusinessTone(id) {
-    try {
-      const result = await pool.query(
-        'DELETE FROM business_tones WHERE id = $1 RETURNING *',
-        [id]
-      );
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error deleting business tone:', error);
-      throw error;
-    }
-  }
-
   // Get complete business information
   async getBusinessWithConfigAndTones(businessId) {
     try {

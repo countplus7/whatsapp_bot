@@ -416,37 +416,4 @@ router.put('/tones/:id', validateBusinessTone, async (req, res) => {
   }
 });
 
-router.delete('/tones/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    if (!id || isNaN(parseInt(id))) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Invalid tone ID' 
-      });
-    }
-    
-    const result = await businessService.deleteBusinessTone(id);
-    if (!result) {
-      return res.status(404).json({ 
-        success: false,
-        error: 'Business tone not found' 
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'Business tone deleted successfully'
-    });
-  } catch (error) {
-    console.error('Error deleting business tone:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to delete business tone',
-      message: error.message 
-    });
-  }
-});
-
 module.exports = router; 

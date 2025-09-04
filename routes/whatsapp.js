@@ -70,7 +70,7 @@ router.post('/webhook', async (req, res) => {
     WhatsAppService.setBusinessConfig(whatsappConfig);
 
     // Get business tone for AI responses
-    const businessTone = await BusinessService.getDefaultTone(businessId);
+    const businessTone = await BusinessService.getBusinessTone(businessId);
     console.log(`Using business tone: ${businessTone ? businessTone.name : 'default'}`);
 
     // Create or get conversation
