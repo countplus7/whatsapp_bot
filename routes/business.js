@@ -2,201 +2,451 @@ const express = require('express');
 const router = express.Router();
 const businessService = require('../services/business');
 
+// Input validation middleware
+const validateBusiness = (req, res, next) => {
+  const { name, description } = req.body;
+  if (!name || name.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: 'Business name is required and cannot be empty' 
+    });
+  }
+  if (name.length > 100) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: 'Business name cannot exceed 100 characters' 
+    });
+  }
+  next();
+};
+
+const validateWhatsAppConfig = (req, res, next) => {
+  const { phone_number_id, access_token } = req.body;
+  if (!phone_number_id || !access_token) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: 'Phone number ID and access token are required' 
+    });
+  }
+  next();
+};
+
+const validateBusinessTone = (req, res, next) => {
+  const { name, tone_instructions } = req.body;
+  if (!name || name.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: 'Tone name is required and cannot be empty' 
+    });
+  }
+  if (!tone_instructions || tone_instructions.trim().length === 0) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: 'Tone instructions are required and cannot be empty' 
+    });
+  }
+  if (name.length > 50) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: 'Tone name cannot exceed 50 characters' 
+    });
+  }
+  next();
+};
+
 // Business Management Routes
 router.get('/businesses', async (req, res) => {
   try {
     const businesses = await businessService.getAllBusinesses();
-    res.json(businesses);
+    res.json({
+      success: true,
+      data: businesses,
+      count: businesses.length
+    });
   } catch (error) {
     console.error('Error getting businesses:', error);
-    res.status(500).json({ error: 'Failed to get businesses' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to retrieve businesses',
+      message: error.message 
+    });
   }
 });
 
 router.get('/businesses/:id', async (req, res) => {
   try {
-    const business = await businessService.getBusinessWithConfigAndTones(req.params.id);
-    if (!business) {
-      return res.status(404).json({ error: 'Business not found' });
+    const { id } = req.params;
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid business ID' 
+      });
     }
-    res.json(business);
+
+    const business = await businessService.getBusinessWithConfigAndTones(id);
+    if (!business) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Business not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: business
+    });
   } catch (error) {
     console.error('Error getting business:', error);
-    res.status(500).json({ error: 'Failed to get business' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to retrieve business',
+      message: error.message 
+    });
   }
 });
 
-router.post('/businesses', async (req, res) => {
+router.post('/businesses', validateBusiness, async (req, res) => {
   try {
-    const { name, description } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Business name is required' });
-    }
+    const { name, description, status = 'active' } = req.body;
     
-    const business = await businessService.createBusiness({ name, description });
-    res.status(201).json(business);
+    const business = await businessService.createBusiness({ 
+      name: name.trim(), 
+      description: description?.trim() || null,
+      status 
+    });
+    
+    res.status(201).json({
+      success: true,
+      data: business,
+      message: 'Business created successfully'
+    });
   } catch (error) {
     console.error('Error creating business:', error);
-    res.status(500).json({ error: 'Failed to create business' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to create business',
+      message: error.message 
+    });
   }
 });
 
-router.put('/businesses/:id', async (req, res) => {
+router.put('/businesses/:id', validateBusiness, async (req, res) => {
   try {
+    const { id } = req.params;
     const { name, description, status } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Business name is required' });
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid business ID' 
+      });
     }
     
-    const business = await businessService.updateBusiness(req.params.id, { name, description, status });
+    const business = await businessService.updateBusiness(id, { 
+      name: name.trim(), 
+      description: description?.trim() || null, 
+      status 
+    });
+    
     if (!business) {
-      return res.status(404).json({ error: 'Business not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Business not found' 
+      });
     }
-    res.json(business);
+    
+    res.json({
+      success: true,
+      data: business,
+      message: 'Business updated successfully'
+    });
   } catch (error) {
     console.error('Error updating business:', error);
-    res.status(500).json({ error: 'Failed to update business' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update business',
+      message: error.message 
+    });
   }
 });
 
 router.delete('/businesses/:id', async (req, res) => {
   try {
-    const business = await businessService.deleteBusiness(req.params.id);
-    if (!business) {
-      return res.status(404).json({ error: 'Business not found' });
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid business ID' 
+      });
     }
-    res.json({ message: 'Business deleted successfully' });
+    
+    const result = await businessService.deleteBusiness(id);
+    if (!result) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Business not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Business deleted successfully'
+    });
   } catch (error) {
     console.error('Error deleting business:', error);
-    res.status(500).json({ error: 'Failed to delete business' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to delete business',
+      message: error.message 
+    });
   }
 });
 
 // WhatsApp Configuration Routes
-router.post('/businesses/:businessId/whatsapp-config', async (req, res) => {
+router.get('/businesses/:businessId/whatsapp-config', async (req, res) => {
   try {
-    const { phone_number_id, access_token, verify_token, webhook_url } = req.body;
-    if (!phone_number_id || !access_token) {
-      return res.status(400).json({ error: 'Phone number ID and access token are required' });
-    }
+    const { businessId } = req.params;
+    const config = await businessService.getWhatsAppConfigByBusinessId(businessId);
     
-    const config = await businessService.createWhatsAppConfig({
-      business_id: req.params.businessId,
-      phone_number_id,
-      access_token,
-      verify_token,
-      webhook_url
+    res.json({
+      success: true,
+      data: config,
+      count: config ? 1 : 0
     });
-    res.status(201).json(config);
   } catch (error) {
-    console.error('Error creating WhatsApp config:', error);
-    res.status(500).json({ error: 'Failed to create WhatsApp configuration' });
+    console.error('Error getting WhatsApp config:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to retrieve WhatsApp configuration',
+      message: error.message 
+    });
   }
 });
 
-router.put('/whatsapp-config/:id', async (req, res) => {
+router.post('/businesses/:businessId/whatsapp-config', validateWhatsAppConfig, async (req, res) => {
   try {
-    const { phone_number_id, access_token, verify_token, webhook_url, status } = req.body;
-    if (!phone_number_id || !access_token) {
-      return res.status(400).json({ error: 'Phone number ID and access token are required' });
+    const { businessId } = req.params;
+    const { phone_number_id, access_token, verify_token, webhook_url } = req.body;
+    
+    const config = await businessService.createWhatsAppConfig({
+      business_id: businessId,
+      phone_number_id,
+      access_token,
+      verify_token,
+      webhook_url,
+      status: 'active' // Added status parameter
+    });
+    
+    res.status(201).json({
+      success: true,
+      data: config,
+      message: 'WhatsApp configuration created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating WhatsApp config:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to create WhatsApp configuration',
+      message: error.message 
+    });
+  }
+});
+
+router.put('/whatsapp-config/:id', validateWhatsAppConfig, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { phone_number_id, access_token, verify_token, webhook_url, status = 'active' } = req.body;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid configuration ID' 
+      });
     }
     
-    const config = await businessService.updateWhatsAppConfig(req.params.id, {
+    const config = await businessService.updateWhatsAppConfig(id, {
       phone_number_id,
       access_token,
       verify_token,
       webhook_url,
       status
     });
+    
     if (!config) {
-      return res.status(404).json({ error: 'WhatsApp configuration not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'WhatsApp configuration not found' 
+      });
     }
-    res.json(config);
+    
+    res.json({
+      success: true,
+      data: config,
+      message: 'WhatsApp configuration updated successfully'
+    });
   } catch (error) {
     console.error('Error updating WhatsApp config:', error);
-    res.status(500).json({ error: 'Failed to update WhatsApp configuration' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update WhatsApp configuration',
+      message: error.message 
+    });
   }
 });
 
 router.delete('/whatsapp-config/:id', async (req, res) => {
   try {
-    const config = await businessService.deleteWhatsAppConfig(req.params.id);
-    if (!config) {
-      return res.status(404).json({ error: 'WhatsApp configuration not found' });
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid configuration ID' 
+      });
     }
-    res.json({ message: 'WhatsApp configuration deleted successfully' });
+    
+    const result = await businessService.deleteWhatsAppConfig(id);
+    if (!result) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'WhatsApp configuration not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'WhatsApp configuration deleted successfully'
+    });
   } catch (error) {
     console.error('Error deleting WhatsApp config:', error);
-    res.status(500).json({ error: 'Failed to delete WhatsApp configuration' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to delete WhatsApp configuration',
+      message: error.message 
+    });
   }
 });
 
 // Business Tone Routes
-router.get('/businesses/:businessId/tones', async (req, res) => {
+router.get('/businesses/:businessId/tone', async (req, res) => {
   try {
-    const tones = await businessService.getBusinessTones(req.params.businessId);
-    res.json(tones);
+    const { businessId } = req.params;
+    const tone = await businessService.getBusinessTone(businessId);
+    
+    res.json({
+      success: true,
+      data: tone
+    });
   } catch (error) {
-    console.error('Error getting business tones:', error);
-    res.status(500).json({ error: 'Failed to get business tones' });
+    console.error('Error getting business tone:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to retrieve business tone',
+      message: error.message 
+    });
   }
 });
 
-router.post('/businesses/:businessId/tones', async (req, res) => {
+router.post('/businesses/:businessId/tone', validateBusinessTone, async (req, res) => {
   try {
-    const { name, description, tone_instructions, is_default } = req.body;
-    if (!name || !tone_instructions) {
-      return res.status(400).json({ error: 'Tone name and instructions are required' });
-    }
+    const { businessId } = req.params;
+    const { name, description, tone_instructions } = req.body;
     
     const tone = await businessService.createBusinessTone({
-      business_id: req.params.businessId,
-      name,
-      description,
-      tone_instructions,
-      is_default: is_default || false
+      business_id: businessId,
+      name: name.trim(),
+      description: description?.trim() || null,
+      tone_instructions: tone_instructions.trim(),
     });
-    res.status(201).json(tone);
+    
+    res.status(201).json({
+      success: true,
+      data: tone,
+      message: 'Business tone created/updated successfully'
+    });
   } catch (error) {
-    console.error('Error creating business tone:', error);
-    res.status(500).json({ error: 'Failed to create business tone' });
+    console.error('Error creating/updating business tone:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to create/update business tone',
+      message: error.message 
+    });
   }
 });
 
-router.put('/tones/:id', async (req, res) => {
+router.put('/tones/:id', validateBusinessTone, async (req, res) => {
   try {
+    const { id } = req.params;
     const { name, description, tone_instructions, is_default, business_id } = req.body;
-    if (!name || !tone_instructions) {
-      return res.status(400).json({ error: 'Tone name and instructions are required' });
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid tone ID' 
+      });
     }
     
-    const tone = await businessService.updateBusinessTone(req.params.id, {
-      name,
-      description,
-      tone_instructions,
+    const tone = await businessService.updateBusinessTone(id, {
+      name: name.trim(),
+      description: description?.trim() || null,
+      tone_instructions: tone_instructions.trim(),
       is_default: is_default || false,
       business_id
     });
+    
     if (!tone) {
-      return res.status(404).json({ error: 'Business tone not found' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Business tone not found' 
+      });
     }
-    res.json(tone);
+    
+    res.json({
+      success: true,
+      data: tone,
+      message: 'Business tone updated successfully'
+    });
   } catch (error) {
     console.error('Error updating business tone:', error);
-    res.status(500).json({ error: 'Failed to update business tone' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update business tone',
+      message: error.message 
+    });
   }
 });
 
 router.delete('/tones/:id', async (req, res) => {
   try {
-    const tone = await businessService.deleteBusinessTone(req.params.id);
-    if (!tone) {
-      return res.status(404).json({ error: 'Business tone not found' });
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid tone ID' 
+      });
     }
-    res.json({ message: 'Business tone deleted successfully' });
+    
+    const result = await businessService.deleteBusinessTone(id);
+    if (!result) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Business tone not found' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Business tone deleted successfully'
+    });
   } catch (error) {
     console.error('Error deleting business tone:', error);
-    res.status(500).json({ error: 'Failed to delete business tone' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to delete business tone',
+      message: error.message 
+    });
   }
 });
 

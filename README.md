@@ -1,255 +1,266 @@
-# WhatsApp AI Chatbot - Multi-Tenant Edition
+# WhatsApp AI Bot API
 
-A comprehensive AI-powered WhatsApp chatbot built with Node.js, PostgreSQL, and OpenAI APIs. The bot supports **multi-tenant architecture** where each company can have its own WhatsApp number and AI personality. The bot supports text chat, image analysis with OCR, voice note transcription, and maintains complete chat history per business.
+A multi-tenant WhatsApp AI Bot API with business management capabilities. Each business can have its own WhatsApp configuration and AI response tones.
 
-## Features
+## 🚀 Features
 
 - **Multi-Tenant Architecture**: Each company has its own WhatsApp number and configuration
-- **Business Management**: Add, edit, and delete businesses through a web interface
-- **WhatsApp Configuration**: Store WhatsApp Business API credentials per business in database
-- **Custom AI Tones**: Each business can have multiple AI response tones (professional, casual, friendly, etc.)
-- **Text Chat**: Natural language conversations using GPT-4 with business-specific tone
-- **Image Analysis**: OCR and image description using GPT-4 Vision
-- **Voice Notes**: Speech-to-text conversion using OpenAI Whisper
-- **Chat History**: Complete conversation storage in PostgreSQL per business
-- **File Management**: Automatic upload and storage of images and audio files
-- **Webhook Integration**: Real-time message processing via WhatsApp Business API
-- **Web Interface**: Simple frontend to manage businesses, configurations, and tones
+- **WhatsApp Business API Integration**: Send and receive messages via WhatsApp Business Cloud API
+- **AI-Powered Responses**: OpenAI GPT-4 integration with customizable business tones
+- **Media Support**: Handle text, images, and audio messages
+- **Business Management**: CRUD operations for businesses, WhatsApp configs, and AI tones
+- **Database Storage**: PostgreSQL backend with proper data isolation
+- **RESTful API**: Clean, documented API endpoints for frontend integration
 
-## Multi-Tenant Features
+## 📁 Project Structure
 
-### Business Management
-- Create multiple businesses/companies
-- Each business can have its own WhatsApp number
-- Business status management (active/inactive)
+```
+backend/
+├── config/                 # Database configuration
+├── routes/                 # API route definitions
+│   ├── business.js        # Business management endpoints
+│   └── whatsapp.js        # WhatsApp webhook endpoints
+├── services/               # Business logic services
+│   ├── business.js        # Business CRUD operations
+│   ├── database.js        # Database operations
+│   ├── openai.js          # OpenAI API integration
+│   └── whatsapp.js        # WhatsApp API integration
+├── scripts/                # Database and utility scripts
+│   ├── init-database.js   # Database initialization
+│   ├── migrate-database.js # Database migration
+│   └── cleanup-media.js   # Media cleanup utility
+├── uploads/                # Media file storage
+│   ├── images/            # Image files
+│   └── audio/             # Audio files
+├── server.js               # Main Express server
+├── package.json            # Dependencies and scripts
+├── .env.example           # Environment configuration template
+├── API_DOCUMENTATION.md   # Complete API documentation
+└── README.md              # This file
+```
 
-### WhatsApp Configuration
-- Store WhatsApp Business API credentials per business
-- Phone Number ID, Access Token, Verify Token, and Webhook URL
-- No need to store sensitive data in environment files
+## 🛠️ Prerequisites
 
-### Business Tones
-- Define custom AI response personalities for each business
-- Multiple tones per business (e.g., Professional, Casual, Friendly)
-- Set default tone for automatic responses
-- Tone instructions guide AI behavior (e.g., "Be professional and formal", "Use casual language")
-
-### Data Isolation
-- All conversations, messages, and media files are isolated by business
-- Each business has its own chat history and context
-- Secure multi-tenant data architecture
-
-## Prerequisites
-
-- Node.js (v16 or higher)
-- PostgreSQL database
-- WhatsApp Business API account(s)
+- Node.js 16+ and npm 8+
+- PostgreSQL 12+
 - OpenAI API key
+- WhatsApp Business API credentials
 
-## Installation
+## 🚀 Quick Start
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd whatsapp_bot
-   ```
+### 1. Clone and Setup
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+# Navigate to backend directory
+cd backend
 
-3. **Set up environment variables**
-   ```bash
-   cp env.example .env
-   ```
-   
-   Edit `.env` file with your configuration:
-   ```env
-   # Server Configuration
-   PORT=8000
-   NODE_ENV=development
+# Install dependencies
+npm install
 
-   # Database Configuration
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=your_db_name
-   DB_USER=your_db_user
-   DB_PASSWORD=your_db_password
+# Copy environment file
+cp .env.example .env
+```
 
-   # OpenAI Configuration
-   OPENAI_API_KEY=your_openai_api_key
+### 2. Environment Configuration
 
-   # Media Processing Configuration
-   MAX_FILE_SIZE=10485760
-   ```
+Edit `.env` file with your configuration:
 
-4. **Set up PostgreSQL database**
-   ```bash
-   # Create user and database
-   See PostgreSQL commands.
-   
-   # Initialize database tables (includes multi-tenant tables)
-   npm run init-db
-   ```
+```bash
+# Server Configuration
+PORT=8000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
 
-5. **Add sample data (optional but recommended for testing)**
-   ```bash
-   npm run add-sample-data
-   ```
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=whatsapp_bot
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
 
-6. **Test the setup**
-   ```bash
-   npm run test-setup
-   ```
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key
+```
 
-7. **Start the server**
-   ```bash
-   # Development mode
-   npm run dev
-   
-   # Production mode
-   npm start
-   ```
+### 3. Database Setup
 
-8. **Access the web interface**
-   - Open your browser and go to `http://localhost:8000`
-   - Use the web interface to manage businesses, WhatsApp configs, and tones
+```bash
+# Initialize database schema
+npm run init-db
 
-## Database Schema
+# Run migrations (if upgrading existing database)
+npm run migrate-db
+```
 
-The multi-tenant system includes these new tables:
+### 4. Start the Server
 
-- **businesses**: Company information and status
-- **whatsapp_configs**: WhatsApp API configuration per business
-- **business_tones**: AI response tones and instructions per business
-- **conversations**: Updated to include business_id
-- **messages**: Updated to include business_id
-- **media_files**: Updated to include business_id
+```bash
+# Development mode with auto-reload
+npm run dev
 
-## Usage
+# Production mode
+npm start
+```
 
-### 1. Business Setup
-1. Access the web interface at `http://localhost:8000`
-2. Go to the "Businesses" tab
-3. Click "Add Business" and enter company details
-4. Set business status to "active"
+### 5. Verify Installation
 
-### 2. WhatsApp Configuration
-1. Go to the "WhatsApp Configs" tab
-2. Select a business from the dropdown
-3. Enter WhatsApp Business API credentials:
-   - Phone Number ID
-   - Access Token
-   - Verify Token (optional)
-   - Webhook URL (optional)
+```bash
+# Health check
+curl http://localhost:8000/health
 
-### 3. Business Tones
-1. Go to the "Business Tones" tab
-2. Select a business from the dropdown
-3. Create tone with:
-   - Name (e.g., "Professional", "Casual")
-   - Description
-   - Tone Instructions (e.g., "Respond in a professional manner")
-   - Set as default (optional)
+# Test API
+curl http://localhost:8000/api/businesses
+```
 
-### 4. Webhook Setup
-For each business, set up webhook in Meta Developer Console:
-- Webhook URL: `https://yourdomain.com/webhook`
-- Verify Token: Use the token from your WhatsApp config
-- Subscribe to messages and message_deliveries
+## 🔌 API Endpoints
 
-## API Endpoints
+### Core Endpoints
 
-### Business Management
-- `GET /api/businesses` - List all businesses
-- `POST /api/businesses` - Create new business
-- `GET /api/businesses/:id` - Get business details
-- `PUT /api/businesses/:id` - Update business
-- `DELETE /api/businesses/:id` - Delete business
+- **`GET /health`** - Health check and status
+- **`GET /webhook`** - WhatsApp webhook verification
+- **`POST /webhook`** - WhatsApp message reception
 
-### WhatsApp Configuration
-- `POST /api/businesses/:businessId/whatsapp-config` - Create WhatsApp config
-- `PUT /api/whatsapp-config/:id` - Update WhatsApp config
-- `DELETE /api/whatsapp-config/:id` - Delete WhatsApp config
+### Business Management API
 
-### Business Tones
-- `GET /api/businesses/:businessId/tones` - List business tones
-- `POST /api/businesses/:businessId/tones` - Create tone
-- `PUT /api/tones/:id` - Update tone
-- `DELETE /api/tones/:id` - Delete tone
+- **`GET /api/businesses`** - List all businesses
+- **`POST /api/businesses`** - Create new business
+- **`GET /api/businesses/:id`** - Get business details
+- **`PUT /api/businesses/:id`** - Update business
+- **`DELETE /api/businesses/:id`** - Delete business
 
-## Sample Data
+### WhatsApp Configuration API
 
-The system includes sample data for testing:
-- 3 sample businesses (TechCorp, Green Earth, HealthCare)
-- WhatsApp configurations for each business
-- Custom tones for each business (Professional, Eco-Friendly, Caring)
+- **`GET /api/businesses/:businessId/whatsapp-config`** - Get WhatsApp config
+- **`POST /api/businesses/:businessId/whatsapp-config`** - Create WhatsApp config
+- **`PUT /api/whatsapp-config/:id`** - Update WhatsApp config
+- **`DELETE /api/whatsapp-config/:id`** - Delete WhatsApp config
 
-Run `npm run add-sample-data` to populate the database with sample data.
+### Business Tones API
 
-## WhatsApp Business API Setup
+- **`GET /api/businesses/:businessId/tones`** - List business tones
+- **`POST /api/businesses/:businessId/tones`** - Create new tone
+- **`PUT /api/tones/:id`** - Update tone
+- **`DELETE /api/tones/:id`** - Delete tone
 
-1. **Create a Meta Developer Account**
-   - Go to [Meta for Developers](https://developers.facebook.com/)
-   - Create a new app or use existing one
+## 🔗 Frontend Integration
 
-2. **Set up WhatsApp Business API**
-   - Add WhatsApp product to your app
-   - Configure webhook endpoints
-   - Generate access tokens
+This API is designed to work with independent frontend applications. See `API_DOCUMENTATION.md` for complete integration details.
 
-3. **For Multi-Tenant Setup**
-   - Each business needs its own WhatsApp Business Account
-   - Configure webhook for each business
-   - Store credentials in the database (not in environment files)
+### Basic Frontend Setup
 
-## Security Features
+```javascript
+const API_BASE = 'http://localhost:8000/api';
 
-- **Multi-tenant data isolation**: Each business's data is completely separated
-- **Database-level security**: Foreign key constraints ensure data integrity
-- **No sensitive data in code**: All WhatsApp credentials stored in database
-- **Input validation**: All API endpoints validate input data
-- **Rate limiting**: Built-in rate limiting for API endpoints
+// Example: Get all businesses
+const getBusinesses = async () => {
+  const response = await fetch(`${API_BASE}/businesses`);
+  const result = await response.json();
+  return result.success ? result.data : [];
+};
+```
 
-## Production Considerations
+### CORS Configuration
 
-- **Database backups**: Regular backups of business data
-- **SSL/TLS**: Use HTTPS in production
-- **Environment variables**: Secure database credentials
-- **Monitoring**: Monitor webhook delivery and API usage
-- **Scaling**: Consider database connection pooling for multiple businesses
+The API is configured to accept requests from:
+- Development: `http://localhost:3000` (configurable)
+- Production: Set via `FRONTEND_URL` environment variable
 
-## Troubleshooting
+## 📊 Database Schema
 
-### Common Issues
+### Core Tables
 
-1. **Webhook verification fails**
-   - Check verify token in WhatsApp config
-   - Ensure webhook URL is accessible
+- **`businesses`** - Business information
+- **`whatsapp_configs`** - WhatsApp API configurations
+- **`business_tones`** - AI response tone configurations
+- **`conversations`** - Chat conversations
+- **`messages`** - Individual messages
+- **`media_files`** - Media file metadata
 
-2. **Messages not processed**
-   - Verify WhatsApp config is active
-   - Check business status is "active"
-   - Verify OpenAI API key is valid
+### Key Relationships
 
-3. **Database connection issues**
-   - Check PostgreSQL connection settings
-   - Ensure database tables are created
-   - Run `npm run init-db` to recreate tables
+- Each business can have one WhatsApp configuration
+- Each business can have multiple AI tones
+- Conversations and messages are linked to businesses
+- Media files are linked to messages
 
-### Debug Mode
+## 🔧 Development
 
-Enable debug logging by setting `NODE_ENV=development` in your environment variables.
+### Available Scripts
 
-## Contributing
+```bash
+npm run dev              # Start development server
+npm run start            # Start production server
+npm run init-db          # Initialize database
+npm run migrate-db       # Run database migrations
+npm run cleanup          # Clean up media files
+npm run health           # Check API health
+```
+
+### Code Structure
+
+- **Routes**: Handle HTTP requests and responses
+- **Services**: Business logic and external API calls
+- **Config**: Database and environment configuration
+- **Scripts**: Database management and utilities
+
+## 🚀 Production Deployment
+
+### Environment Variables
+
+```bash
+NODE_ENV=production
+FRONTEND_URL=https://yourdomain.com
+DB_HOST=your_db_host
+DB_PASSWORD=your_secure_password
+```
+
+### Security Considerations
+
+- Implement proper authentication and authorization
+- Use HTTPS in production
+- Configure proper CORS origins
+- Set up rate limiting
+- Monitor API usage and logs
+
+### Scaling
+
+- Use connection pooling for database
+- Implement caching for frequently accessed data
+- Consider using Redis for session management
+- Set up proper logging and monitoring
+
+## 📚 Documentation
+
+- **`API_DOCUMENTATION.md`** - Complete API reference
+- **Environment Variables** - Configuration options
+- **Database Schema** - Table structures and relationships
+
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
+4. Test thoroughly
 5. Submit a pull request
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License. 
+MIT License - see LICENSE file for details
+
+## 🆘 Support
+
+For issues and questions:
+1. Check the API documentation
+2. Review server logs
+3. Test database connectivity
+4. Verify environment configuration
+
+## 🔄 Changelog
+
+### v1.0.0
+- Initial release with multi-tenant architecture
+- WhatsApp Business API integration
+- OpenAI GPT-4 integration
+- Business management API
+- Media file handling
+- Database migration support 

@@ -4,10 +4,10 @@ class BusinessService {
   // Business Management
   async createBusiness(businessData) {
     try {
-      const { name, description } = businessData;
+      const { name, description, status = 'active' } = businessData;
       const result = await pool.query(
-        'INSERT INTO businesses (name, description) VALUES ($1, $2) RETURNING *',
-        [name, description]
+        'INSERT INTO businesses (name, description, status) VALUES ($1, $2, $3) RETURNING *',
+        [name, description, status]
       );
       return result.rows[0];
     } catch (error) {
@@ -113,7 +113,7 @@ class BusinessService {
 
   async updateWhatsAppConfig(id, configData) {
     try {
-      const { phone_number_id, access_token, verify_token, webhook_url, status } = configData;
+      const { phone_number_id, access_token, verify_token, webhook_url, status = 'active' } = configData;
       const result = await pool.query(
         `UPDATE whatsapp_configs 
         SET phone_number_id = $1, access_token = $2, verify_token = $3, webhook_url = $4, status = $5, updated_at = CURRENT_TIMESTAMP 
@@ -143,25 +143,25 @@ class BusinessService {
   // Business Tone Management
   async createBusinessTone(toneData) {
     try {
-      const { business_id, name, description, tone_instructions, is_default } = toneData;
+      const { business_id, name, description, tone_instructions } = toneData;
       
-      // If this is set as default, unset other defaults for this business
-      if (is_default) {
-        await pool.query(
-          'UPDATE business_tones SET is_default = false WHERE business_id = $1',
-          [business_id]
-        );
-      }
-
+      // Use UPSERT to create or update the tone for this business
       const result = await pool.query(
         `INSERT INTO business_tones 
-        (business_id, name, description, tone_instructions, is_default) 
-        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [business_id, name, description, tone_instructions, is_default]
+        (business_id, name, description, tone_instructions) 
+        VALUES ($1, $2, $3, $4) 
+        ON CONFLICT (business_id) 
+        DO UPDATE SET 
+          name = EXCLUDED.name,
+          description = EXCLUDED.description,
+          tone_instructions = EXCLUDED.tone_instructions,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING *`,
+        [business_id, name, description, tone_instructions]
       );
       return result.rows[0];
     } catch (error) {
-      console.error('Error creating business tone:', error);
+      console.error('Error creating/updating business tone:', error);
       throw error;
     }
   }
@@ -175,6 +175,19 @@ class BusinessService {
       return result.rows;
     } catch (error) {
       console.error('Error getting business tones:', error);
+      throw error;
+    }
+  }
+
+  async getBusinessTone(businessId) {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM business_tones WHERE business_id = $1',
+        [businessId]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('Error getting business tone:', error);
       throw error;
     }
   }

@@ -10,21 +10,20 @@ const fs = require('fs-extra');
 // Webhook verification endpoint
 router.get('/webhook', (req, res) => {
   try {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
+    const { 'hub.mode': mode, 'hub.verify_token': token, 'hub.challenge': challenge } = req.query;
 
-    if (mode && token) {
-      // For webhook verification, we need to identify which business this is for
-      // We'll use a default business for now, but in production you might want to
-      // identify this from the webhook URL or other parameters
-      const verificationResult = WhatsAppService.verifyWebhook(mode, token, challenge);
-      console.log('Verification result:', verificationResult);
-      res.status(200).send(verificationResult);
-    } else {
-      console.log('Missing required parameters');
-      res.status(403).send('Forbidden');
+    if (!mode || !token) {
+      console.log('Webhook verification failed: Missing required parameters');
+      return res.status(403).send('Forbidden');
     }
+
+    // For webhook verification, we need to identify which business this is for
+    // We'll use a default business for now, but in production you might want to
+    // identify this from the webhook URL or other parameters
+    const verificationResult = WhatsAppService.verifyWebhook(mode, token, challenge);
+    console.log('Webhook verification successful:', { mode, token: token.substring(0, 10) + '...' });
+    
+    res.status(200).send(verificationResult);
   } catch (error) {
     console.error('Webhook verification error:', error);
     res.status(403).send('Forbidden');
@@ -35,6 +34,7 @@ router.get('/webhook', (req, res) => {
 router.post('/webhook', async (req, res) => {
   try {
     console.log('=== WEBHOOK RECEIVED ===');
+    console.log('Timestamp:', new Date().toISOString());
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     console.log('Body:', JSON.stringify(req.body, null, 2));
     console.log('========================');
@@ -47,7 +47,14 @@ router.post('/webhook', async (req, res) => {
       return res.status(200).send('OK');
     }
 
-    console.log('Processed message data:', messageData);
+    console.log('Processed message data:', {
+      messageId: messageData.messageId,
+      from: messageData.from,
+      to: messageData.to,
+      type: messageData.messageType,
+      hasContent: !!messageData.content,
+      hasMedia: !!messageData.mediaId
+    });
 
     // Identify the business from the phone number ID
     const whatsappConfig = await BusinessService.getWhatsAppConfigByPhoneNumber(messageData.to);
@@ -89,6 +96,8 @@ router.post('/webhook', async (req, res) => {
     // Handle different message types
     if (messageData.messageType === 'image' || messageData.messageType === 'audio') {
       try {
+        console.log(`Processing ${messageData.messageType} message...`);
+        
         // Download media file
         const mediaStream = await WhatsAppService.downloadMedia(messageData.mediaId);
         
@@ -119,23 +128,24 @@ router.post('/webhook', async (req, res) => {
         });
 
         // Save media file info to database
+        const fileStats = fs.statSync(localFilePath);
         await DatabaseService.saveMediaFile({
           businessId: businessId,
           messageId: messageData.messageId,
           fileType: messageData.messageType,
           originalFilename: fileName,
           localFilePath: localFilePath,
-          fileSize: fs.statSync(localFilePath).size,
+          fileSize: fileStats.size,
           mimeType: messageData.messageType === 'image' ? 'image/jpeg' : 'audio/ogg'
         });
 
         // Update message with local file path
         await DatabaseService.updateMessageLocalFilePath(messageData.messageId, localFilePath);
 
-        console.log(`Media file saved: ${localFilePath}`);
+        console.log(`Media file saved successfully: ${localFilePath} (${fileStats.size} bytes)`);
       } catch (error) {
         console.error('Error downloading media:', error);
-        aiResponse = 'Sorry, I encountered an error processing your media file.';
+        aiResponse = 'Sorry, I encountered an error processing your media file. Please try sending it again.';
       }
     }
 
@@ -156,7 +166,7 @@ router.post('/webhook', async (req, res) => {
       console.log('AI response generated successfully');
     } catch (error) {
       console.error('Error processing message with AI:', error);
-      aiResponse = 'Sorry, I encountered an error processing your message. Please try again.';
+      aiResponse = 'Sorry, I encountered an error processing your message. Please try again in a moment.';
     }
 
     // Save AI response
@@ -178,14 +188,17 @@ router.post('/webhook', async (req, res) => {
     // Send response back to WhatsApp
     try {
       await WhatsAppService.sendTextMessage(messageData.from, aiResponse);
-      console.log('AI response sent to WhatsApp');
+      console.log('AI response sent to WhatsApp successfully');
     } catch (error) {
       console.error('Error sending response to WhatsApp:', error);
+      // Don't fail the webhook, just log the error
     }
 
+    console.log('=== WEBHOOK PROCESSING COMPLETED ===');
     res.status(200).send('OK');
   } catch (error) {
     console.error('Webhook processing error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).send('Internal Server Error');
   }
 });
