@@ -221,6 +221,29 @@ class DatabaseService {
       throw error;
     }
   }
+
+  // Delete a conversation and all associated data
+  async deleteConversation(conversationId) {
+    try {
+      // First get the conversation details before deleting
+      const conversation = await this.getConversationDetails(conversationId);
+      
+      if (!conversation) {
+        return null;
+      }
+
+      // Delete the conversation (CASCADE will handle related records)
+      await pool.query(
+        "DELETE FROM conversations WHERE id = $1",
+        [conversationId]
+      );
+
+      return conversation;
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new DatabaseService();
