@@ -169,7 +169,7 @@ class BusinessService {
   async getBusinessTones(businessId) {
     try {
       const result = await pool.query(
-        'SELECT * FROM business_tones WHERE business_id = $1 ORDER BY is_default DESC, created_at DESC',
+        'SELECT * FROM business_tones WHERE business_id = $1 ORDER BY created_at DESC',
         [businessId]
       );
       return result.rows;
@@ -195,7 +195,7 @@ class BusinessService {
   async getDefaultTone(businessId) {
     try {
       const result = await pool.query(
-        'SELECT * FROM business_tones WHERE business_id = $1 AND is_default = true',
+        'SELECT * FROM business_tones WHERE business_id = $1',
         [businessId]
       );
       return result.rows[0];
@@ -207,21 +207,13 @@ class BusinessService {
 
   async updateBusinessTone(id, toneData) {
     try {
-      const { name, description, tone_instructions, is_default, business_id } = toneData;
-      
-      // If this is set as default, unset other defaults for this business
-      if (is_default) {
-        await pool.query(
-          'UPDATE business_tones SET is_default = false WHERE business_id = $1',
-          [business_id]
-        );
-      }
+      const { name, description, tone_instructions, business_id } = toneData;
 
       const result = await pool.query(
         `UPDATE business_tones 
-        SET name = $1, description = $2, tone_instructions = $3, is_default = $4, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $5 RETURNING *`,
-        [name, description, tone_instructions, is_default, id]
+        SET name = $1, description = $2, tone_instructions = $3, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $4 RETURNING *`,
+        [name, description, tone_instructions, id]
       );
       return result.rows[0];
     } catch (error) {

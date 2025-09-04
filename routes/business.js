@@ -378,7 +378,7 @@ router.post('/businesses/:businessId/tone', validateBusinessTone, async (req, re
 router.put('/tones/:id', validateBusinessTone, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, tone_instructions, is_default, business_id } = req.body;
+    const { name, description, tone_instructions, business_id } = req.body;
     
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({ 
@@ -391,7 +391,6 @@ router.put('/tones/:id', validateBusinessTone, async (req, res) => {
       name: name.trim(),
       description: description?.trim() || null,
       tone_instructions: tone_instructions.trim(),
-      is_default: is_default || false,
       business_id
     });
     

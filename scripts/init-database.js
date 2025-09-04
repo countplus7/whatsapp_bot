@@ -1,10 +1,38 @@
 const pool = require('../config/database');
 
+const dropAllTables = async () => {
+  try {
+    console.log('Dropping all existing tables...');
+    
+    // Drop tables in reverse order of dependencies
+    const tables = [
+      'media_files',
+      'messages', 
+      'conversations',
+      'business_tones',
+      'whatsapp_configs',
+      'businesses'
+    ];
+
+    for (const table of tables) {
+      await pool.query(`DROP TABLE IF EXISTS ${table} CASCADE`);
+      console.log(`Dropped table: ${table}`);
+    }
+    
+    console.log('All tables dropped successfully');
+  } catch (error) {
+    console.error('Error dropping tables:', error);
+    throw error;
+  }
+};
+
 const createTables = async () => {
   try {
+    console.log('Creating fresh database tables...');
+    
     // Create businesses table
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS businesses (
+      CREATE TABLE businesses (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
@@ -13,10 +41,11 @@ const createTables = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    console.log('Created table: businesses');
 
     // Create WhatsApp configurations table
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS whatsapp_configs (
+      CREATE TABLE whatsapp_configs (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL,
         phone_number_id VARCHAR(100) NOT NULL,
@@ -30,10 +59,11 @@ const createTables = async () => {
         UNIQUE(business_id, phone_number_id)
       )
     `);
+    console.log('Created table: whatsapp_configs');
 
     // Create business tones table (one tone per business)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS business_tones (
+      CREATE TABLE business_tones (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL UNIQUE,
         name VARCHAR(100) NOT NULL,
@@ -44,108 +74,62 @@ const createTables = async () => {
         FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
       )
     `);
+    console.log('Created table: business_tones');
 
     // Create conversations table (updated to include business_id)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS conversations (
+      CREATE TABLE conversations (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL,
-        whatsapp_number VARCHAR(20) NOT NULL,
-        conversation_id VARCHAR(100) UNIQUE NOT NULL,
+        phone_number VARCHAR(20) NOT NULL,
+        status VARCHAR(20) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
       )
     `);
+    console.log('Created table: conversations');
 
     // Create messages table (updated to include business_id)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS messages (
+      CREATE TABLE messages (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL,
-        conversation_id VARCHAR(100) NOT NULL,
-        message_id VARCHAR(100) UNIQUE NOT NULL,
+        conversation_id INTEGER NOT NULL,
+        message_id VARCHAR(255) UNIQUE,
         from_number VARCHAR(20) NOT NULL,
         to_number VARCHAR(20) NOT NULL,
         message_type VARCHAR(20) NOT NULL,
         content TEXT,
         media_url VARCHAR(500),
-        local_file_path VARCHAR(500),
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        is_from_user BOOLEAN DEFAULT true,
-        ai_response TEXT,
+        media_type VARCHAR(50),
+        direction VARCHAR(10) NOT NULL,
+        status VARCHAR(20) DEFAULT 'received',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
-        FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
     `);
+    console.log('Created table: messages');
 
-    // Create media_files table (updated to include business_id)
+    // Create media files table (updated to include business_id)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS media_files (
+      CREATE TABLE media_files (
         id SERIAL PRIMARY KEY,
         business_id INTEGER NOT NULL,
-        message_id VARCHAR(100) NOT NULL,
-        file_type VARCHAR(20) NOT NULL,
-        original_filename VARCHAR(255),
-        local_file_path VARCHAR(500) NOT NULL,
-        file_size BIGINT,
-        mime_type VARCHAR(100),
+        message_id INTEGER,
+        file_name VARCHAR(255) NOT NULL,
+        file_path VARCHAR(500) NOT NULL,
+        file_type VARCHAR(50) NOT NULL,
+        file_size INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
-        FOREIGN KEY (message_id) REFERENCES messages(message_id) ON DELETE CASCADE
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
       )
     `);
-
-    // Create indexes for better performance
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_businesses_status 
-      ON businesses(status)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_whatsapp_configs_business_id 
-      ON whatsapp_configs(business_id)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_business_tones_business_id 
-      ON business_tones(business_id)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_conversations_business_id 
-      ON conversations(business_id)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_conversations_whatsapp_number 
-      ON conversations(whatsapp_number)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_messages_business_id 
-      ON messages(business_id)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_messages_conversation_id 
-      ON messages(conversation_id)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_messages_timestamp 
-      ON messages(timestamp)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_media_files_business_id 
-      ON media_files(business_id)
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_media_files_message_id 
-      ON media_files(message_id)
-    `);
+    console.log('Created table: media_files');
 
     console.log('Database tables created successfully');
   } catch (error) {
@@ -156,8 +140,9 @@ const createTables = async () => {
 
 const initDatabase = async () => {
   try {
+    await dropAllTables();
     await createTables();
-    console.log('Database initialization completed');
+    console.log('Database initialization completed - all data cleared and tables recreated');
     process.exit(0);
   } catch (error) {
     console.error('Database initialization failed:', error);
@@ -170,4 +155,4 @@ if (require.main === module) {
   initDatabase();
 }
 
-module.exports = { createTables }; 
+module.exports = { createTables, dropAllTables }; 
