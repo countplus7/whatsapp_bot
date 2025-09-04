@@ -12,6 +12,8 @@ router.get('/webhook', (req, res) => {
   try {
     const { 'hub.mode': mode, 'hub.verify_token': token, 'hub.challenge': challenge } = req.query;
 
+    console.log('Webhook verification request:', { mode, token: token ? token.substring(0, 10) + '...' : 'undefined', challenge });
+
     if (!mode || !token) {
       console.log('Webhook verification failed: Missing required parameters');
       return res.status(403).send('Forbidden');
@@ -60,6 +62,14 @@ router.post('/webhook', async (req, res) => {
     const whatsappConfig = await BusinessService.getWhatsAppConfigByPhoneNumber(messageData.to);
     if (!whatsappConfig) {
       console.error('No WhatsApp configuration found for phone number:', messageData.to);
+      console.error('Available phone numbers in database:');
+      // Let's also log what phone numbers we have in the database for debugging
+      try {
+        const allConfigs = await BusinessService.getAllWhatsAppConfigs();
+        console.error('All WhatsApp configs:', allConfigs.map(c => ({ id: c.id, phone_number_id: c.phone_number_id, business_id: c.business_id })));
+      } catch (dbError) {
+        console.error('Error fetching WhatsApp configs for debugging:', dbError);
+      }
       return res.status(200).send('OK');
     }
 
@@ -132,30 +142,28 @@ router.post('/webhook', async (req, res) => {
         await DatabaseService.saveMediaFile({
           businessId: businessId,
           messageId: messageData.messageId,
-          fileType: messageData.messageType,
-          originalFilename: fileName,
+          mediaId: messageData.mediaId,
+          mediaType: messageData.messageType,
+          mediaUrl: messageData.mediaUrl,
           localFilePath: localFilePath,
-          fileSize: fileStats.size,
-          mimeType: messageData.messageType === 'image' ? 'image/jpeg' : 'audio/ogg'
+          fileSize: fileStats.size
         });
 
         // Update message with local file path
-        await DatabaseService.updateMessageLocalFilePath(messageData.messageId, localFilePath);
+        await DatabaseService.updateMessageLocalFilePath(savedMessage.id, localFilePath);
 
-        console.log(`Media file saved successfully: ${localFilePath} (${fileStats.size} bytes)`);
+        console.log(`Media file saved: ${localFilePath}`);
       } catch (error) {
-        console.error('Error downloading media:', error);
-        aiResponse = 'Sorry, I encountered an error processing your media file. Please try sending it again.';
+        console.error(`Error processing ${messageData.messageType} message:`, error);
+        // Continue with text response even if media processing fails
       }
     }
 
     // Get conversation history for context
     const conversationHistory = await DatabaseService.getConversationHistoryForAI(businessId, messageData.from, 10);
-    console.log(`Retrieved ${conversationHistory.length} previous messages for context`);
 
-    // Process message with AI (including business tone)
+    // Generate AI response
     try {
-      console.log(`Processing ${messageData.messageType} message with AI...`);
       aiResponse = await OpenAIService.processMessage(
         messageData.messageType,
         messageData.content,
@@ -163,10 +171,9 @@ router.post('/webhook', async (req, res) => {
         conversationHistory,
         businessTone
       );
-      console.log('AI response generated successfully');
     } catch (error) {
-      console.error('Error processing message with AI:', error);
-      aiResponse = 'Sorry, I encountered an error processing your message. Please try again in a moment.';
+      console.error('Error generating AI response:', error);
+      aiResponse = 'Sorry, I encountered an error processing your message. Please try again.';
     }
 
     // Save AI response

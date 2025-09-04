@@ -169,6 +169,12 @@ class WhatsAppService {
         throw new Error('Invalid webhook structure: no changes or value found');
       }
 
+      // Extract phone number ID from webhook metadata
+      const phoneNumberId = changes.value.metadata?.phone_number_id;
+      if (!phoneNumberId) {
+        throw new Error('No phone number ID found in webhook metadata');
+      }
+
       const messages = changes.value.messages;
       if (!messages || messages.length === 0) {
         console.log('No messages found in webhook, this might be a status update');
@@ -211,7 +217,7 @@ class WhatsAppService {
 
       return {
         from,
-        to: this.phoneNumberId,
+        to: phoneNumberId, // Use the phone number ID from webhook metadata
         messageId,
         messageType,
         content,
