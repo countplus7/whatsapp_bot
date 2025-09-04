@@ -1,31 +1,30 @@
-const pool = require('../config/database');
+const pool = require("../config/database");
 
 class DatabaseService {
   async createOrGetConversation(businessId, whatsappNumber) {
     try {
       // Check if conversation exists
       const existingConversation = await pool.query(
-        'SELECT * FROM conversations WHERE business_id = $1 AND phone_number = $2 ORDER BY updated_at DESC LIMIT 1',
+        "SELECT * FROM conversations WHERE business_id = $1 AND phone_number = $2 ORDER BY updated_at DESC LIMIT 1",
         [businessId, whatsappNumber]
       );
 
       if (existingConversation.rows.length > 0) {
         // Update the existing conversation
-        await pool.query(
-          'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-          [existingConversation.rows[0].id]
-        );
+        await pool.query("UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1", [
+          existingConversation.rows[0].id,
+        ]);
         return existingConversation.rows[0];
       } else {
         // Create new conversation
         const newConversation = await pool.query(
-          'INSERT INTO conversations (business_id, phone_number) VALUES ($1, $2) RETURNING *',
+          "INSERT INTO conversations (business_id, phone_number) VALUES ($1, $2) RETURNING *",
           [businessId, whatsappNumber]
         );
         return newConversation.rows[0];
       }
     } catch (error) {
-      console.error('Error creating/getting conversation:', error);
+      console.error("Error creating/getting conversation:", error);
       throw error;
     }
   }
@@ -46,13 +45,13 @@ class DatabaseService {
           messageData.messageType,
           messageData.content,
           messageData.mediaUrl,
-          messageData.isFromUser ? 'inbound' : 'outbound',
-          'received'
+          messageData.isFromUser ? "inbound" : "outbound",
+          "received",
         ]
       );
       return result.rows[0];
     } catch (error) {
-      console.error('Error saving message:', error);
+      console.error("Error saving message:", error);
       throw error;
     }
   }
@@ -69,12 +68,12 @@ class DatabaseService {
           mediaData.fileName,
           mediaData.filePath,
           mediaData.fileType,
-          mediaData.fileSize
+          mediaData.fileSize,
         ]
       );
       return result.rows[0];
     } catch (error) {
-      console.error('Error saving media file:', error);
+      console.error("Error saving media file:", error);
       throw error;
     }
   }
@@ -100,12 +99,12 @@ class DatabaseService {
         [businessId, whatsappNumber, limit]
       );
 
-      return result.rows.reverse().map(row => ({
+      return result.rows.reverse().map((row) => ({
         role: row.role,
-        content: row.content
+        content: row.content,
       }));
     } catch (error) {
-      console.error('Error getting conversation history for AI:', error);
+      console.error("Error getting conversation history for AI:", error);
       throw error;
     }
   }
@@ -114,18 +113,18 @@ class DatabaseService {
     try {
       // Since messages table doesn't have local_file_path, we'll update the media_files table instead
       const result = await pool.query(
-        'UPDATE media_files SET file_path = $1 WHERE message_id = (SELECT id FROM messages WHERE message_id = $2) RETURNING *',
+        "UPDATE media_files SET file_path = $1 WHERE message_id = (SELECT id FROM messages WHERE message_id = $2) RETURNING *",
         [localFilePath, messageId]
       );
-      
+
       if (result.rows.length === 0) {
         console.warn(`No media file found for message ID ${messageId} to update`);
         return null;
       }
-      
+
       return result.rows[0];
     } catch (error) {
-      console.error('Error updating message local file path:', error);
+      console.error("Error updating message local file path:", error);
       throw error;
     }
   }
@@ -151,7 +150,7 @@ class DatabaseService {
       );
       return result.rows;
     } catch (error) {
-      console.error('Error getting business conversations:', error);
+      console.error("Error getting business conversations:", error);
       throw error;
     }
   }
@@ -181,9 +180,20 @@ class DatabaseService {
          LIMIT $2 OFFSET $3`,
         [conversationId, limit, offset]
       );
-      return result.rows;
+
+      // Process the results to construct full media URLs
+      const processedRows = result.rows.map((row) => {
+        if (row.file_path) {
+          // Construct the full URL for media files
+          const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 8000}`;
+          row.media_url = `${baseUrl}/${row.file_path}`;
+        }
+        return row;
+      });
+
+      return processedRows;
     } catch (error) {
-      console.error('Error getting conversation messages:', error);
+      console.error("Error getting conversation messages:", error);
       throw error;
     }
   }
@@ -207,10 +217,10 @@ class DatabaseService {
       );
       return result.rows[0] || null;
     } catch (error) {
-      console.error('Error getting conversation details:', error);
+      console.error("Error getting conversation details:", error);
       throw error;
     }
   }
 }
 
-module.exports = new DatabaseService(); 
+module.exports = new DatabaseService();
