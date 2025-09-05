@@ -61,7 +61,12 @@ class OpenAIService {
       console.log(`OpenAI: Image file size: ${imageBuffer.length} bytes`);
       console.log(`OpenAI: Base64 length: ${base64Image.length} characters`);
 
-      let promptText = userMessage || 'Please analyze this image and describe what you see. If there is any text in the image, please read it out clearly. Provide a detailed description including any text, objects, people, or important details you can identify.';
+      let promptText = 'Please analyze this image and describe what you see in detail. Include any text, objects, people, colors, or important details. Be specific and helpful in your description.';
+      
+      // If user sent a message with the image, include it in the analysis
+      if (userMessage && userMessage.trim() !== '' && userMessage !== 'User sent a image message') {
+        promptText += ` The user also sent this message with the image: "${userMessage}". Please consider this context in your analysis.`;
+      }
       
       // Apply business-specific tone if provided
       if (businessTone && businessTone.tone_instructions) {
@@ -158,11 +163,20 @@ class OpenAIService {
             console.error(`OpenAI: Image file does not exist: ${filePath}`);
             throw new Error(`Image file does not exist: ${filePath}`);
           }
+          // For images, analyze directly and provide a conversational response
           const imageAnalysis = await this.analyzeImage(filePath, content, businessTone);
-          // Combine image analysis with conversation history for better context
-          aiResponse = await this.chatCompletion([
-            { role: 'user', content: `Image analysis: ${imageAnalysis}. User message: ${content || 'Please respond to this image.'}` }
-          ], conversationHistory, businessTone);
+          
+          // If there's user text with the image, combine it with the analysis
+          if (content && content.trim() !== '' && content !== `User sent a ${messageType} message`) {
+            aiResponse = await this.chatCompletion([
+              { role: 'user', content: `User sent an image with this message: "${content}". Here's what I see in the image: ${imageAnalysis}. Please respond to both the image and the user's message.` }
+            ], conversationHistory, businessTone);
+          } else {
+            // Just respond to the image analysis
+            aiResponse = await this.chatCompletion([
+              { role: 'user', content: `I analyzed this image and here's what I see: ${imageAnalysis}. Please provide a helpful response about what's in the image.` }
+            ], conversationHistory, businessTone);
+          }
           break;
 
         case 'audio':
