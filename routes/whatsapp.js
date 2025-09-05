@@ -76,6 +76,38 @@ router.post('/webhook', async (req, res) => {
     const businessId = whatsappConfig.business_id;
     console.log(`Processing message for business ID: ${businessId}`);
 
+    // Check if business is active before processing
+    const business = await BusinessService.getBusinessById(businessId);
+    if (!business) {
+      console.error(`Business not found for ID: ${businessId}`);
+      return res.status(200).send('OK');
+    }
+
+    if (business.status === 'inactive') {
+      console.log(`Business ${businessId} (${business.name}) is inactive. Skipping AI response.`);
+      
+      // Still save the incoming message for record keeping
+      const conversation = await DatabaseService.createOrGetConversation(businessId, messageData.from);
+      console.log('Conversation created/found:', { id: conversation.id, business_id: conversation.business_id, phone_number: conversation.phone_number });
+
+      // Save the incoming message
+      const savedMessage = await DatabaseService.saveMessage({
+        businessId: businessId,
+        conversationId: conversation.id,
+        messageId: messageData.messageId,
+        fromNumber: messageData.from,
+        toNumber: messageData.to,
+        messageType: messageData.messageType,
+        content: messageData.content,
+        mediaUrl: messageData.mediaUrl,
+        localFilePath: null,
+        isFromUser: true
+      });
+
+      console.log('Incoming message saved (business inactive, no AI response)');
+      return res.status(200).send('OK');
+    }
+
     // Set WhatsApp service configuration for this business
     WhatsAppService.setBusinessConfig(whatsappConfig);
 
@@ -101,6 +133,7 @@ router.post('/webhook', async (req, res) => {
       isFromUser: true
     });
 
+    // Handle media files if present
     let localFilePath = null;
     let aiResponse = '';
 
@@ -153,34 +186,34 @@ router.post('/webhook', async (req, res) => {
         await DatabaseService.updateMessageLocalFilePath(messageData.messageId, localFilePath);
 
         console.log(`Media file saved: ${localFilePath}`);
-      } catch (error) {
-        console.error(`Error processing ${messageData.messageType} message:`, error);
-        // Continue with text response even if media processing fails
+      } catch (mediaError) {
+        console.error('Error processing media:', mediaError);
+        // Continue with text processing even if media fails
       }
     }
 
-    // Get conversation history for context
-    const conversationHistory = await DatabaseService.getConversationHistoryForAI(businessId, messageData.from, 10);
-
     // Generate AI response
     try {
-      aiResponse = await OpenAIService.processMessage(
-        messageData.messageType,
-        messageData.content,
-        localFilePath,
+      const conversationHistory = await DatabaseService.getConversationHistoryForAI(conversation.id);
+      const toneInstructions = businessTone ? businessTone.tone_instructions : 'Respond in a helpful and professional manner.';
+      
+      aiResponse = await OpenAIService.generateResponse(
+        messageData.content || `User sent a ${messageData.messageType} message`,
         conversationHistory,
-        businessTone
+        toneInstructions
       );
-    } catch (error) {
-      console.error('Error generating AI response:', error);
+      
+      console.log('AI response generated:', aiResponse);
+    } catch (aiError) {
+      console.error('Error generating AI response:', aiError);
       aiResponse = 'Sorry, I encountered an error processing your message. Please try again.';
     }
 
-    // Save AI response
+    // Save AI response to database
     const aiMessageId = `ai_${messageData.messageId}_${Date.now()}`;
     await DatabaseService.saveMessage({
       businessId: businessId,
-      conversationId: conversation.id, // Use conversation.id instead of conversation.conversation_id
+      conversationId: conversation.id,
       messageId: aiMessageId,
       fromNumber: messageData.to,
       toNumber: messageData.from,
@@ -231,9 +264,8 @@ router.post('/webhook', async (req, res) => {
     res.status(200).send('OK');
   } catch (error) {
     console.error('Webhook processing error:', error);
-    console.error('Error stack:', error.stack);
     res.status(500).send('Internal Server Error');
   }
 });
 
-module.exports = router; 
+module.exports = router;
