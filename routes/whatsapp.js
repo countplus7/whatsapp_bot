@@ -151,9 +151,13 @@ router.post('/webhook', async (req, res) => {
         const fileExtension = messageData.messageType === 'image' ? '.jpg' : '.ogg';
         const fileName = `${businessId}_${messageData.messageId}_${timestamp}${fileExtension}`;
         const uploadDir = messageData.messageType === 'image' ? 'uploads/images' : 'uploads/audio';
-        localFilePath = path.join(uploadDir, fileName);
-
+        
+        // Use absolute path for AI processing
+        localFilePath = path.resolve(__dirname, '..', uploadDir, fileName);
+        
         console.log(`Saving media to: ${localFilePath}`);
+        console.log(`Current working directory: ${process.cwd()}`);
+        console.log(`__dirname: ${__dirname}`);
 
         // Ensure directory exists before saving file
         await fs.ensureDir(path.dirname(localFilePath));
@@ -183,21 +187,22 @@ router.post('/webhook', async (req, res) => {
           throw new Error('Media file was not saved');
         }
 
-        // Save media file info to database
+        // Save media file info to database (use relative path for database)
+        const relativePath = path.join(uploadDir, fileName);
         const fileStats = fs.statSync(localFilePath);
         await DatabaseService.saveMediaFile({
           businessId: businessId,
-          messageId: savedMessage.id, // Use the database ID, not the WhatsApp message ID
+          messageId: savedMessage.id,
           fileName: fileName,
-          filePath: localFilePath,
+          filePath: relativePath, // Store relative path in database
           fileType: messageData.messageType,
           fileSize: fileStats.size
         });
 
         // Update message with local file path (this will update the media_files table)
-        await DatabaseService.updateMessageLocalFilePath(messageData.messageId, localFilePath);
+        await DatabaseService.updateMessageLocalFilePath(messageData.messageId, relativePath);
 
-        console.log(`Media file info saved to database`);
+        console.log(`Media file info saved to database with path: ${relativePath}`);
       } catch (mediaError) {
         console.error('Error processing media:', mediaError);
         console.error('Media processing failed, continuing with text-only response');
@@ -211,12 +216,13 @@ router.post('/webhook', async (req, res) => {
       
       console.log(`Generating AI response for message type: ${messageData.messageType}`);
       console.log(`Local file path: ${localFilePath}`);
+      console.log(`File exists: ${localFilePath ? fs.existsSync(localFilePath) : 'N/A'}`);
       console.log(`Message content: ${messageData.content}`);
       
       aiResponse = await OpenAIService.processMessage(
         messageData.messageType,
         messageData.content || `User sent a ${messageData.messageType} message`,
-        localFilePath, // For media messages
+        localFilePath, // Use absolute path for AI processing
         conversationHistory,
         businessTone
       );
@@ -224,6 +230,8 @@ router.post('/webhook', async (req, res) => {
       console.log('AI response generated:', aiResponse);
     } catch (aiError) {
       console.error('Error generating AI response:', aiError);
+      console.error('AI Error details:', aiError.message);
+      console.error('AI Error stack:', aiError.stack);
       aiResponse = 'Sorry, I encountered an error processing your message. Please try again.';
     }
 

@@ -47,13 +47,19 @@ class OpenAIService {
 
   async analyzeImage(imagePath, userMessage = '', businessTone = null) {
     try {
+      console.log(`OpenAI: Analyzing image at path: ${imagePath}`);
+      
       // Check if file exists
       if (!fs.existsSync(imagePath)) {
+        console.error(`OpenAI: Image file not found: ${imagePath}`);
         throw new Error(`Image file not found: ${imagePath}`);
       }
 
       const imageBuffer = fs.readFileSync(imagePath);
       const base64Image = imageBuffer.toString('base64');
+      
+      console.log(`OpenAI: Image file size: ${imageBuffer.length} bytes`);
+      console.log(`OpenAI: Base64 length: ${base64Image.length} characters`);
 
       let promptText = userMessage || 'Please analyze this image and describe what you see. If there is any text in the image, please read it out clearly. Provide a detailed description including any text, objects, people, or important details you can identify.';
       
@@ -61,6 +67,8 @@ class OpenAIService {
       if (businessTone && businessTone.tone_instructions) {
         promptText += `\n\n${businessTone.tone_instructions}`;
       }
+
+      console.log(`OpenAI: Using prompt: ${promptText}`);
 
       const messages = [
         {
@@ -80,6 +88,8 @@ class OpenAIService {
         },
       ];
 
+      console.log(`OpenAI: Sending request to OpenAI with model: ${this.visionModel}`);
+
       const response = await openai.chat.completions.create({
         model: this.visionModel,
         messages: messages,
@@ -87,10 +97,13 @@ class OpenAIService {
         temperature: 0.7,
       });
 
+      console.log(`OpenAI: Received response: ${response.choices[0].message.content}`);
       return response.choices[0].message.content;
     } catch (error) {
       console.error('OpenAI image analysis error:', error);
-      throw new Error('Failed to analyze image');
+      console.error('OpenAI error details:', error.message);
+      console.error('OpenAI error stack:', error.stack);
+      throw new Error(`Failed to analyze image: ${error.message}`);
     }
   }
 
@@ -120,18 +133,30 @@ class OpenAIService {
 
   async processMessage(messageType, content, filePath = null, conversationHistory = [], businessTone = null) {
     try {
+      console.log(`OpenAI: Processing message type: ${messageType}`);
+      console.log(`OpenAI: Content: ${content}`);
+      console.log(`OpenAI: File path: ${filePath}`);
+      console.log(`OpenAI: File exists: ${filePath ? fs.existsSync(filePath) : 'N/A'}`);
+      
       let aiResponse = '';
 
       switch (messageType) {
         case 'text':
+          console.log('OpenAI: Processing text message');
           aiResponse = await this.chatCompletion([
             { role: 'user', content: content }
           ], conversationHistory, businessTone);
           break;
 
         case 'image':
+          console.log('OpenAI: Processing image message');
           if (!filePath) {
+            console.error('OpenAI: Image file path is required for image analysis');
             throw new Error('Image file path is required for image analysis');
+          }
+          if (!fs.existsSync(filePath)) {
+            console.error(`OpenAI: Image file does not exist: ${filePath}`);
+            throw new Error(`Image file does not exist: ${filePath}`);
           }
           const imageAnalysis = await this.analyzeImage(filePath, content, businessTone);
           // Combine image analysis with conversation history for better context
@@ -141,8 +166,14 @@ class OpenAIService {
           break;
 
         case 'audio':
+          console.log('OpenAI: Processing audio message');
           if (!filePath) {
+            console.error('OpenAI: Audio file path is required for transcription');
             throw new Error('Audio file path is required for transcription');
+          }
+          if (!fs.existsSync(filePath)) {
+            console.error(`OpenAI: Audio file does not exist: ${filePath}`);
+            throw new Error(`Audio file does not exist: ${filePath}`);
           }
           const transcription = await this.transcribeAudio(filePath);
           aiResponse = await this.chatCompletion([
@@ -151,12 +182,16 @@ class OpenAIService {
           break;
 
         default:
+          console.error(`OpenAI: Unsupported message type: ${messageType}`);
           throw new Error(`Unsupported message type: ${messageType}`);
       }
 
+      console.log(`OpenAI: Generated response: ${aiResponse}`);
       return aiResponse;
     } catch (error) {
-      console.error('Error processing message:', error);
+      console.error('OpenAI: Error processing message:', error);
+      console.error('OpenAI: Error details:', error.message);
+      console.error('OpenAI: Error stack:', error.stack);
       throw error;
     }
   }
