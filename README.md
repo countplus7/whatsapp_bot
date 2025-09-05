@@ -149,7 +149,7 @@ This API is designed to work with independent frontend applications. See `API_DO
 ### Basic Frontend Setup
 
 ```javascript
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = "http://localhost:8000/api";
 
 // Example: Get all businesses
 const getBusinesses = async () => {
@@ -162,6 +162,7 @@ const getBusinesses = async () => {
 ### CORS Configuration
 
 The API is configured to accept requests from:
+
 - Development: `http://localhost:8080` (configurable)
 - Production: Set via `FRONTEND_URL` environment variable
 
@@ -210,6 +211,7 @@ npm run health           # Check API health
 ```bash
 NODE_ENV=production
 FRONTEND_URL=https://yourdomain.com
+API_BASE_URL=https://yourdomain.com/media
 DB_HOST=your_db_host
 DB_PASSWORD=your_secure_password
 ```
@@ -250,6 +252,7 @@ MIT License - see LICENSE file for details
 ## 🆘 Support
 
 For issues and questions:
+
 1. Check the API documentation
 2. Review server logs
 3. Test database connectivity
@@ -258,9 +261,10 @@ For issues and questions:
 ## 🔄 Changelog
 
 ### v1.0.0
+
 - Initial release with multi-tenant architecture
 - WhatsApp Business API integration
 - OpenAI GPT-4 integration
 - Business management API
 - Media file handling
-- Database migration support 
+- Database migration support
