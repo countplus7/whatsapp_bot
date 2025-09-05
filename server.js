@@ -105,7 +105,7 @@ app.use("*", (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 WhatsApp AI Bot server running on port ${PORT}`);
+  console.log(`WhatsApp AI Bot server running on port ${PORT}`);
 });
 
 module.exports = app;
