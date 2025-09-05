@@ -270,7 +270,6 @@ router.put("/whatsapp-config/:id", validateWhatsAppConfig, async (req, res) => {
       access_token,
       verify_token,
       webhook_url,
-      status,
     });
 
     if (!config) {
