@@ -141,6 +141,7 @@ router.post('/webhook', async (req, res) => {
     if (messageData.messageType === 'image' || messageData.messageType === 'audio') {
       try {
         console.log(`Processing ${messageData.messageType} message...`);
+        console.log(`Media ID: ${messageData.mediaId}`);
         
         // Download media file
         const mediaStream = await WhatsAppService.downloadMedia(messageData.mediaId);
@@ -151,6 +152,8 @@ router.post('/webhook', async (req, res) => {
         const fileName = `${businessId}_${messageData.messageId}_${timestamp}${fileExtension}`;
         const uploadDir = messageData.messageType === 'image' ? 'uploads/images' : 'uploads/audio';
         localFilePath = path.join(uploadDir, fileName);
+
+        console.log(`Saving media to: ${localFilePath}`);
 
         // Ensure directory exists before saving file
         await fs.ensureDir(path.dirname(localFilePath));
@@ -171,6 +174,15 @@ router.post('/webhook', async (req, res) => {
           });
         });
 
+        // Verify file was saved
+        if (fs.existsSync(localFilePath)) {
+          const fileStats = fs.statSync(localFilePath);
+          console.log(`Media file saved successfully: ${localFilePath} (${fileStats.size} bytes)`);
+        } else {
+          console.error(`Media file was not saved: ${localFilePath}`);
+          throw new Error('Media file was not saved');
+        }
+
         // Save media file info to database
         const fileStats = fs.statSync(localFilePath);
         await DatabaseService.saveMediaFile({
@@ -185,9 +197,10 @@ router.post('/webhook', async (req, res) => {
         // Update message with local file path (this will update the media_files table)
         await DatabaseService.updateMessageLocalFilePath(messageData.messageId, localFilePath);
 
-        console.log(`Media file saved: ${localFilePath}`);
+        console.log(`Media file info saved to database`);
       } catch (mediaError) {
         console.error('Error processing media:', mediaError);
+        console.error('Media processing failed, continuing with text-only response');
         // Continue with text processing even if media fails
       }
     }
@@ -195,6 +208,10 @@ router.post('/webhook', async (req, res) => {
     // Generate AI response
     try {
       const conversationHistory = await DatabaseService.getConversationHistoryForAI(conversation.id);
+      
+      console.log(`Generating AI response for message type: ${messageData.messageType}`);
+      console.log(`Local file path: ${localFilePath}`);
+      console.log(`Message content: ${messageData.content}`);
       
       aiResponse = await OpenAIService.processMessage(
         messageData.messageType,
