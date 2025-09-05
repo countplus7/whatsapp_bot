@@ -195,18 +195,25 @@ router.post('/webhook', async (req, res) => {
     // Generate AI response
     try {
       const conversationHistory = await DatabaseService.getConversationHistoryForAI(conversation.id);
-      const toneInstructions = businessTone ? businessTone.tone_instructions : 'Respond in a helpful and professional manner.';
       
-      aiResponse = await OpenAIService.generateResponse(
+      aiResponse = await OpenAIService.processMessage(
+        messageData.messageType,
         messageData.content || `User sent a ${messageData.messageType} message`,
+        localFilePath, // For media messages
         conversationHistory,
-        toneInstructions
+        businessTone
       );
       
       console.log('AI response generated:', aiResponse);
     } catch (aiError) {
       console.error('Error generating AI response:', aiError);
       aiResponse = 'Sorry, I encountered an error processing your message. Please try again.';
+    }
+
+    // Only proceed with sending response if we have a valid AI response
+    if (!aiResponse || aiResponse.trim() === '') {
+      console.log('No AI response generated, skipping WhatsApp response');
+      return res.status(200).send('OK');
     }
 
     // Save AI response to database
