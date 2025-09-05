@@ -236,7 +236,6 @@ router.post("/businesses/:businessId/whatsapp-config", validateWhatsAppConfig, a
       access_token,
       verify_token,
       webhook_url,
-      status: "active", // Added status parameter
     });
 
     res.status(201).json({
@@ -257,7 +256,7 @@ router.post("/businesses/:businessId/whatsapp-config", validateWhatsAppConfig, a
 router.put("/whatsapp-config/:id", validateWhatsAppConfig, async (req, res) => {
   try {
     const { id } = req.params;
-    const { phone_number_id, access_token, verify_token, webhook_url, status = "active" } = req.body;
+    const { phone_number_id, access_token, verify_token, webhook_url } = req.body;
 
     if (!id || isNaN(parseInt(id))) {
       return res.status(400).json({

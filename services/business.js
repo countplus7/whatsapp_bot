@@ -113,12 +113,12 @@ class BusinessService {
 
   async updateWhatsAppConfig(id, configData) {
     try {
-      const { phone_number_id, access_token, verify_token, webhook_url, status = 'active' } = configData;
+      const { phone_number_id, access_token, verify_token, webhook_url } = configData;
       const result = await pool.query(
         `UPDATE whatsapp_configs 
-        SET phone_number_id = $1, access_token = $2, verify_token = $3, webhook_url = $4, status = $5, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $6 RETURNING *`,
-        [phone_number_id, access_token, verify_token, webhook_url, status, id]
+        SET phone_number_id = $1, access_token = $2, verify_token = $3, webhook_url = $4, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $5 RETURNING *`,
+        [phone_number_id, access_token, verify_token, webhook_url, id]
       );
       return result.rows[0];
     } catch (error) {

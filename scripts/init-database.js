@@ -52,7 +52,6 @@ const createTables = async () => {
         access_token TEXT NOT NULL,
         verify_token VARCHAR(255),
         webhook_url VARCHAR(500),
-        status VARCHAR(20) DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
